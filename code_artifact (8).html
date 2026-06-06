@@ -1,0 +1,2441 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>星際宇航員資優銀行 (Gifted Cosmic Bank)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Space+Grotesk:wght@400;700&family=Noto+Sans+TC:wght@400;700&display=swap');
+    
+    :root {
+      --space-bg: #050510;
+    }
+
+    body {
+      font-family: 'Space Grotesk', 'Noto Sans TC', sans-serif;
+      background-color: var(--space-bg);
+      color: #e0e7ff;
+      overflow-x: hidden;
+    }
+
+    /* 動態星空背景 */
+    .star-background {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      background: radial-gradient(ellipse at bottom, #1B2735 0%, #090A0F 100%);
+      overflow: hidden;
+    }
+
+    .star {
+      position: absolute;
+      background: white;
+      border-radius: 50%;
+      opacity: 0.5;
+      animation: twinkle var(--duration) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    /* 嗶卡波動 */
+    @keyframes ripple {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+    .ripple {
+      position: absolute;
+      border: 2px solid rgba(129, 140, 248, 0.6);
+      border-radius: 50%;
+      animation: ripple 0.8s ease-out forwards;
+    }
+
+    /* 玻璃擬態 */
+    .glass {
+      background: rgba(15, 15, 35, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-btn-active {
+      background: linear-gradient(to right, #6366f1, #a855f7);
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+    }
+    
+    /* 登入介面特殊光環 */
+    .glowing-orb {
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, rgba(168,85,247,0) 70%);
+      border-radius: 50%;
+      filter: blur(40px);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 星空背景層 -->
+  <div class="star-background" id="star-field"></div>
+
+  <!-- Toast 訊息通知區 -->
+  <div id="toast-container" class="fixed top-24 right-6 z-50 space-y-3 pointer-events-none"></div>
+
+  <!-- 星空自訂智慧對話/確認/輸入框元件 -->
+  <div id="cosmic-dialog-overlay" class="fixed inset-0 z-[100] hidden bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass max-w-md w-full p-8 rounded-3xl border border-indigo-500/30 text-center space-y-5 shadow-2xl relative overflow-hidden">
+      <div id="dialog-icon" class="text-5xl animate-bounce">🛸</div>
+      <h3 id="dialog-title" class="text-xl font-bold tracking-tight text-white"></h3>
+      <p id="dialog-msg" class="text-sm text-indigo-200 leading-relaxed"></p>
+      
+      <!-- 動態輸入欄位 -->
+      <div id="dialog-input-container" class="hidden">
+        <input type="text" id="dialog-input" class="w-full bg-black/50 border border-white/10 p-3 rounded-xl text-center text-white outline-none focus:border-indigo-500 font-mono" placeholder="請輸入安全認證碼...">
+      </div>
+
+      <div class="flex gap-3 justify-center pt-2">
+        <button id="dialog-btn-cancel" class="px-5 py-3 rounded-xl text-xs font-bold text-slate-400 bg-slate-900 border border-white/5 hover:text-white transition-all">取消</button>
+        <button id="dialog-btn-ok" class="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-xs font-bold text-white transition-all hover:opacity-90 shadow-lg shadow-indigo-500/20">確認</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 宇宙登入控制艙門介面 ==================== -->
+  <section id="view-login" class="min-h-screen flex flex-col items-center justify-center p-4 relative z-40">
+    <div class="glowing-orb -top-12 -left-12"></div>
+    <div class="glowing-orb -bottom-12 -right-12"></div>
+    
+    <div class="max-w-2xl w-full glass p-8 md:p-10 rounded-[36px] border border-indigo-500/30 shadow-2xl relative overflow-hidden space-y-8">
+      
+      <!-- 標題與標誌 -->
+      <div class="text-center space-y-2">
+        <div class="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-full flex items-center justify-center text-4xl shadow-lg shadow-indigo-500/30 mx-auto animate-pulse">🪐</div>
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 via-purple-300 to-amber-200">
+          GIFTED COSMIC BANK
+        </h1>
+        <p class="text-xs text-indigo-300 font-medium font-mono uppercase tracking-widest">星空資優銀行 · 登入控制台</p>
+      </div>
+
+      <!-- 登入身分頁籤 -->
+      <div class="flex bg-black/50 p-1.5 rounded-2xl border border-white/10">
+        <button onclick="setLoginRole('student')" id="login-tab-student" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all text-white bg-gradient-to-r from-indigo-600 to-purple-600 shadow-md">
+          🎒 宇航員入口
+        </button>
+        <button onclick="setLoginRole('captain')" id="login-tab-captain" class="flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white">
+          👩‍🏫 艦長控制端
+        </button>
+      </div>
+
+      <!-- 宇航員登入面板 -->
+      <div id="login-panel-student" class="space-y-6">
+        <div class="space-y-4">
+          <div>
+            <label class="text-xs text-indigo-300 font-bold block mb-1">🔑 請輸入您的登機編號</label>
+            <input type="text" id="login-student-id" placeholder="例如：G50113..." class="w-full bg-black/60 border border-white/10 p-4 rounded-2xl outline-none text-white focus:border-indigo-500 font-mono tracking-wider">
+          </div>
+          <div>
+            <label class="text-xs text-indigo-300 font-bold block mb-1">🔒 請輸入您的登入密碼</label>
+            <input type="password" id="login-student-pass" placeholder="請輸入密碼..." class="w-full bg-black/60 border border-white/10 p-4 rounded-2xl outline-none text-white focus:border-indigo-500 font-mono tracking-wider">
+          </div>
+        </div>
+        <button onclick="attemptStudentLogin()" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 rounded-2xl font-bold text-sm text-white transition-all shadow-md shadow-indigo-500/20">
+          開啟艙門 ➔
+        </button>
+      </div>
+
+      <!-- 艦長登入面板 -->
+      <div id="login-panel-captain" class="hidden space-y-6">
+        <div class="space-y-2">
+          <label class="text-xs text-amber-300 font-bold block">🔐 請輸入艦長安全認證密碼</label>
+          <input type="password" id="login-captain-pass" placeholder="預設密碼為 8888..." class="w-full bg-black/60 border border-white/10 p-4 rounded-2xl outline-none text-white text-center focus:border-amber-500 font-mono text-lg tracking-widest">
+        </div>
+        <button onclick="attemptCaptainLogin()" class="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:opacity-95 rounded-2xl font-bold text-sm text-white transition-all shadow-md shadow-orange-500/20">
+          認證安全密鑰並登入 🛰️
+        </button>
+      </div>
+
+      <!-- 版權備註 -->
+      <p class="text-[10px] text-center text-slate-500 font-mono">
+        SYSTEM DECK v2.5 · SECURITY MODE ACTIVE
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================== 主工作區 (登入後解鎖) ==================== -->
+  <div id="app-workspace" class="hidden">
+    <!-- 頂部導航 -->
+    <header class="glass sticky top-0 z-50 px-6 py-4 mb-6 shadow-2xl">
+      <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center text-2xl shadow-lg animate-bounce">🌙</div>
+          <div>
+            <h1 class="text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">GIFTED COSMIC BANK</h1>
+            <p class="text-xs text-indigo-300 font-medium font-mono">星空資優銀行 · 高階智慧金融模擬艙</p>
+          </div>
+        </div>
+
+        <!-- 頂部時間展示 -->
+        <div class="flex items-center gap-3 bg-black/40 px-5 py-2.5 rounded-2xl border border-white/10">
+          <div class="text-xs text-center">
+            <p class="text-indigo-300 font-bold">星際標準時間</p>
+            <p id="cosmic-date-display" class="font-mono text-amber-300 text-sm font-bold">第 1 週期 (天)</p>
+          </div>
+          <div class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" title="時間計時引擎正常運作中"></div>
+        </div>
+
+        <nav class="flex flex-wrap items-center gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/10">
+          <button onclick="showView('student')" id="btn-student" class="nav-btn px-4 py-2 rounded-xl text-sm font-bold transition-all nav-btn-active text-white">🎒 宇航員艙</button>
+          <!-- 嗶卡機與艦長後台按鈕預設加上 hidden，由 JavaScript 控制權限後動態顯示 -->
+          <button onclick="showView('terminal')" id="btn-terminal" class="nav-btn hidden px-4 py-2 rounded-xl text-sm font-bold transition-all text-slate-400">📟 嗶卡機</button>
+          <button onclick="showView('teacher')" id="btn-teacher" class="nav-btn hidden px-4 py-2 rounded-xl text-sm font-bold transition-all text-slate-400">👩‍🏫 艦長後台</button>
+          <button onclick="lockCaptainMode()" id="btn-lock-captain" class="hidden px-4 py-2 bg-rose-600/30 text-rose-300 border border-rose-500/20 hover:bg-rose-600/50 rounded-xl text-sm font-bold transition-all">🔒 鎖定艦長</button>
+          <button onclick="logoutSystem()" class="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-xl text-sm font-bold transition-all border border-white/5">🚪 登出</button>
+        </nav>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 pb-20">
+
+      <!-- 1. 嗶卡機介面 -->
+      <section id="view-terminal" class="view-section hidden space-y-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <!-- 左側：感應區 -->
+          <div class="lg:col-span-5 glass p-8 rounded-3xl relative overflow-hidden flex flex-col items-center justify-center min-h-[500px]">
+            <div class="text-center mb-8">
+              <h2 class="text-3xl font-bold mb-2">星際感應終端</h2>
+              <p class="text-indigo-300 text-sm" id="terminal-instructions">請選擇模式後點擊右側卡片進行「虛擬感應」</p>
+            </div>
+
+            <!-- 模式切換 -->
+            <div class="flex gap-4 mb-10 w-full">
+              <button onclick="setMode('earn')" id="mode-earn" class="flex-1 py-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 font-bold text-emerald-400">獎勵發放 (+)</button>
+              <button onclick="setMode('spend')" id="mode-spend" class="flex-1 py-4 rounded-2xl border-2 border-rose-500 bg-rose-500/20 font-bold text-rose-400">商店扣款 (-)</button>
+            </div>
+
+            <!-- 感應核心 -->
+            <div class="relative w-48 h-48 mb-8 group cursor-pointer" id="nfc-zone" onclick="triggerManualSelectionTap()">
+              <div class="absolute inset-0 bg-indigo-500/20 rounded-full animate-ping"></div>
+              <div class="absolute inset-0 border-4 border-indigo-500/30 rounded-full flex items-center justify-center text-6xl glass shadow-inner transition-transform group-hover:scale-110">
+                <span id="nfc-icon">🚀</span>
+              </div>
+              <div id="ripple-container" class="absolute inset-0 pointer-events-none flex items-center justify-center"></div>
+            </div>
+
+            <div class="w-full space-y-4">
+              <label class="text-xs text-indigo-300 font-bold">選擇事件 / 商品</label>
+              <select id="action-select" onchange="toggleCustomInputs()" class="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-white outline-none focus:ring-2 focus:ring-indigo-500 font-medium">
+                <!-- JS 動態生成 -->
+              </select>
+              
+              <!-- 自訂事件與金額輸入框 -->
+              <div id="custom-action-inputs" class="hidden space-y-3 mt-3 p-4 bg-indigo-950/20 border border-indigo-500/20 rounded-2xl">
+                <div>
+                  <label class="text-xs text-indigo-300 font-bold block mb-1">✍️ 自訂事由或商品名稱</label>
+                  <input type="text" id="custom-action-name" placeholder="例如：打掃極度認真、特別貢獻..." class="w-full bg-black/50 border border-white/10 p-3 rounded-xl outline-none text-white text-sm focus:border-indigo-500">
+                </div>
+                <div>
+                  <label class="text-xs text-indigo-300 font-bold block mb-1">🪙 自訂金幣數量</label>
+                  <input type="number" id="custom-action-amount" placeholder="例如：75" class="w-full bg-black/50 border border-white/10 p-3 rounded-xl outline-none text-white text-sm focus:border-indigo-500 font-mono">
+                </div>
+              </div>
+              
+              <div class="border-t border-white/10 my-4 pt-4">
+                <label class="text-xs text-indigo-300 font-bold block mb-2">手動輸入宇航員登機編號</label>
+                <div class="flex gap-2">
+                  <input type="text" id="manual-id" placeholder="例如: G50113..." class="flex-1 bg-black/50 border border-white/10 p-4 rounded-2xl outline-none text-white focus:border-indigo-500 font-mono">
+                  <button onclick="handleManualTap()" class="px-6 bg-indigo-600 rounded-2xl font-bold hover:bg-indigo-500 transition-colors">嗶卡！</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 右側：宇航員名冊 -->
+          <div class="lg:col-span-7 space-y-4">
+            <div class="flex justify-between items-center px-2">
+              <h3 class="text-xl font-bold">快速虛擬感應名冊 (點擊即可嗶卡)</h3>
+              <input type="text" id="student-search" oninput="renderTerminalCards()" placeholder="搜尋姓名或登機編號..." class="bg-black/30 border border-white/10 px-4 py-2 rounded-full text-sm outline-none text-white focus:border-indigo-500">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto max-h-[600px] p-2" id="terminal-cards">
+              <!-- JS 動態生成精美卡片 -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 艦長後台 -->
+      <section id="view-teacher" class="view-section hidden space-y-6">
+        
+        <!-- 星際時間計時與推進引擎 -->
+        <div class="glass p-6 rounded-3xl border border-indigo-500/20 shadow-xl flex flex-col md:flex-row justify-between items-center gap-6">
+          <div>
+            <h3 class="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-400 flex items-center gap-2">
+              <span>🚀</span> 星際曆推進與結算中樞 (僅限艦長操作)
+            </h3>
+            <p class="text-xs text-slate-300 mt-1">
+              當推進時間時，系統將結算：**活存利息、定期存款到期本息**，並隨機產生**虛擬股票、債券與基金之波動**。
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="advanceTime(1)" class="px-5 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 rounded-2xl text-sm font-bold transition-all shadow-lg shadow-indigo-500/20">
+              ⏳ 推進 1 天
+            </button>
+            <button onclick="advanceTime(7)" class="px-5 py-3 bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:opacity-90 rounded-2xl text-sm font-bold transition-all shadow-lg shadow-purple-500/20">
+              🛸 推進 7 天
+            </button>
+          </div>
+        </div>
+
+        <!-- 權限控制與密碼管理模組 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- 宇航員權限模組 -->
+          <div class="lg:col-span-2 glass p-6 rounded-3xl border border-white/10">
+            <h3 class="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
+              <span>⚙️</span> 宇航員端功能模組權限控制 (即時生效)
+            </h3>
+            <p class="text-xs text-slate-400 mb-4">勾選下方分頁允許宇航員在個人艙看見與進行操作。關閉後該功能分頁將在宇航員端完全隱藏：</p>
+            <div class="grid grid-cols-2 gap-4">
+              <label class="flex items-center gap-3 p-4 bg-black/40 rounded-2xl border border-white/5 cursor-pointer hover:border-indigo-500/30 transition-all">
+                <input type="checkbox" id="toggle-store" checked onchange="toggleStudentTab('store')" class="w-5 h-5 rounded text-indigo-600 bg-black border-white/10 focus:ring-0">
+                <div class="text-sm">
+                  <p class="font-bold text-white">🛒 星際商店</p>
+                  <p class="text-[10px] text-slate-400">允許兌換商品物資</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-4 bg-black/40 rounded-2xl border border-white/5 cursor-pointer hover:border-indigo-500/30 transition-all">
+                <input type="checkbox" id="toggle-bank" checked onchange="toggleStudentTab('bank')" class="w-5 h-5 rounded text-indigo-600 bg-black border-white/10 focus:ring-0">
+                <div class="text-sm">
+                  <p class="font-bold text-white">🏦 定存合約</p>
+                  <p class="text-[10px] text-slate-400">開放宇航員鎖倉利息</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-4 bg-black/40 rounded-2xl border border-white/5 cursor-pointer hover:border-indigo-500/30 transition-all">
+                <input type="checkbox" id="toggle-invest" checked onchange="toggleStudentTab('invest')" class="w-5 h-5 rounded text-indigo-600 bg-black border-white/10 focus:ring-0">
+                <div class="text-sm">
+                  <p class="font-bold text-white">📈 證券交易所</p>
+                  <p class="text-[10px] text-slate-400">允許買賣股債基金</p>
+                </div>
+              </label>
+              <label class="flex items-center gap-3 p-4 bg-black/40 rounded-2xl border border-white/5 cursor-pointer hover:border-indigo-500/30 transition-all">
+                <input type="checkbox" id="toggle-history" checked onchange="toggleStudentTab('history')" class="w-5 h-5 rounded text-indigo-600 bg-black border-white/10 focus:ring-0">
+                <div class="text-sm">
+                  <p class="font-bold text-white">📊 帳戶 & 轉帳</p>
+                  <p class="text-[10px] text-slate-400">同儕 P2P 相互轉帳</p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 艦長安全認證密碼變更模組 -->
+          <div class="glass p-6 rounded-3xl border border-white/10 flex flex-col justify-between">
+            <div>
+              <h3 class="text-lg font-bold text-indigo-300 mb-2 flex items-center gap-2">
+                <span>🔐</span> 變更艦長安全密碼
+              </h3>
+              <p class="text-xs text-slate-400 mb-4">預設密碼為 <span class="text-amber-300 font-mono">8888</span>。修改密碼後，進入終端嗶卡機與艦長後台皆需輸入新密碼。</p>
+            </div>
+            <div class="space-y-3">
+              <input type="password" id="new-passcode-input" placeholder="輸入 4-8 位新密碼..." class="w-full bg-black/50 border border-white/10 p-3 rounded-xl text-center text-white outline-none font-mono text-sm focus:border-indigo-500">
+              <button onclick="changeCaptainPasscode()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-bold text-xs text-white hover:opacity-90 transition-all shadow-md shadow-indigo-500/20">變更認證密碼</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 預設事件與商店商品管理模組 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- 管理課堂獎勵事件 -->
+          <div class="glass p-6 rounded-3xl border border-white/10 space-y-4">
+            <h3 class="text-lg font-bold text-emerald-400 flex items-center gap-2">
+              <span>📋</span> 管理課堂獎勵預設事件
+            </h3>
+            <div class="space-y-2 max-h-[28rem] overflow-y-auto pr-2" id="manage-tasks-list">
+              <!-- JS 動態渲染預設事件與刪除按鈕 -->
+            </div>
+            <div class="border-t border-white/10 pt-4 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300">🆕 新增預設事件</h4>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="text" id="new-task-name" placeholder="事件名稱 (如：熱心助人)" class="bg-black/50 border border-white/10 p-3 rounded-xl text-xs text-white outline-none">
+                <input type="number" id="new-task-amount" placeholder="獎勵金幣 (+)" class="bg-black/50 border border-white/10 p-3 rounded-xl text-xs text-white outline-none font-mono">
+              </div>
+              <button onclick="addPresetTask()" class="w-full py-2 bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600 hover:text-white rounded-xl text-xs font-bold transition-all border border-emerald-500/20">添加獎勵事件</button>
+            </div>
+          </div>
+
+          <!-- 管理商店商品 -->
+          <div class="glass p-6 rounded-3xl border border-white/10 space-y-4">
+            <h3 class="text-lg font-bold text-rose-400 flex items-center gap-2">
+              <span>🛍️</span> 管理與增減商店商品及數量
+            </h3>
+            <p class="text-[11px] text-slate-400">您可以調整常態商品的**名稱、圖標、售價**與**庫存量**，亦可快速使用增減微調鍵。</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[22rem] overflow-y-auto pr-2" id="manage-items-list">
+              <!-- JS 動態渲染預設商品與自訂調整、編輯與刪除按鈕 -->
+            </div>
+            <div class="border-t border-white/10 pt-4 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300">🆕 新增商店商品項目</h4>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="text" id="new-item-name" placeholder="商品名稱" class="bg-black/50 border border-white/10 p-3 rounded-xl text-xs text-white outline-none">
+                <input type="text" id="new-item-icon" placeholder="圖標 (如：✏️)" class="bg-black/50 border border-white/10 p-3 rounded-xl text-xs text-center text-white outline-none">
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" id="new-item-price" placeholder="商品售價 (-)" class="bg-black/50 border border-white/10 p-3 rounded-xl text-xs text-white outline-none font-mono">
+                <input type="number" id="new-item-stock" placeholder="上架庫存量" class="bg-black/50 border border-white/10 p-3 rounded-xl text-xs text-white outline-none font-mono">
+              </div>
+              <button onclick="addPresetItem()" class="w-full py-2 bg-rose-600/30 text-rose-300 hover:bg-rose-600 hover:text-white rounded-xl text-xs font-bold transition-all border border-rose-500/20">添加商品並上架</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 統計數據 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="glass p-6 rounded-2xl">
+            <p class="text-xs text-indigo-300 font-bold mb-1">金幣流通量</p>
+            <h4 class="text-3xl font-bold text-amber-400" id="stat-total">0</h4>
+          </div>
+          <div class="glass p-6 rounded-2xl">
+            <p class="text-xs text-indigo-300 font-bold mb-1">平均宇航員存款</p>
+            <h4 class="text-3xl font-bold text-indigo-400" id="stat-avg">0</h4>
+          </div>
+          <div class="glass p-6 rounded-2xl">
+            <p class="text-xs text-indigo-300 font-bold mb-1">宇航員總人數</p>
+            <h4 class="text-3xl font-bold text-purple-400" id="stat-count">0</h4>
+          </div>
+          <div class="glass p-6 rounded-2xl">
+            <p class="text-xs text-indigo-300 font-bold mb-1">流通之定存單數</p>
+            <h4 class="text-3xl font-bold text-emerald-400" id="stat-deposits">0</h4>
+          </div>
+        </div>
+
+        <!-- 開戶與宇航員管理 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div class="glass p-8 rounded-3xl space-y-4 h-fit">
+            <h3 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300">🆕 新增星際帳戶</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="text-xs text-indigo-200 block mb-1">宇航員登機編號 (帳號)</label>
+                <input type="text" id="new-id" placeholder="例如: G50115" class="w-full bg-black/40 border border-white/10 p-3 rounded-xl outline-none text-white font-mono">
+              </div>
+              <div>
+                <label class="text-xs text-indigo-200 block mb-1">宇航員姓名</label>
+                <input type="text" id="new-name" placeholder="例如: 林小豪" class="w-full bg-black/40 border border-white/10 p-3 rounded-xl outline-none text-white">
+              </div>
+              <div>
+                <label class="text-xs text-indigo-200 block mb-1">設定登入密碼</label>
+                <input type="password" id="new-password" placeholder="設定登入密碼..." class="w-full bg-black/40 border border-white/10 p-3 rounded-xl outline-none text-white font-mono">
+              </div>
+              <div>
+                <label class="text-xs text-indigo-200 block mb-1">初始金幣</label>
+                <input type="number" id="new-balance" value="500" class="w-full bg-black/40 border border-white/10 p-3 rounded-xl outline-none text-white font-mono">
+              </div>
+              <button onclick="createNewAccount()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-bold text-white hover:opacity-90 transition-opacity">完成星際開戶</button>
+            </div>
+          </div>
+
+          <div class="lg:col-span-2 glass p-8 rounded-3xl">
+            <div class="flex justify-between items-center mb-6">
+              <h3 class="text-xl font-bold">星際宇航員管理與管理操作</h3>
+              <button onclick="resetSystemData()" class="px-4 py-2 border border-red-500/40 text-red-400 rounded-xl text-xs hover:bg-red-500/20 transition-all">⚠️ 重設所有資料</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left">
+                <thead class="text-indigo-300 border-b border-white/10 text-sm">
+                  <tr>
+                    <th class="pb-4">宇航員姓名</th>
+                    <th class="pb-4">登機編號</th>
+                    <th class="pb-4">登入密碼</th>
+                    <th class="pb-4 text-right">餘額 (🪙)</th>
+                    <th class="pb-4 text-center">管理動作</th>
+                  </tr>
+                </thead>
+                <tbody id="teacher-table-body">
+                  <!-- JS 動態生成 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 全帳域交易明細與資產數據大盤 -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-8">
+          <!-- 左側：全艦所有人交易歷史紀錄 -->
+          <div class="lg:col-span-7 glass p-8 rounded-3xl space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+              <h3 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-purple-300 flex items-center gap-2">
+                <span>📋</span> 全帳域交易歷史紀錄
+              </h3>
+              <button onclick="clearAllLogs()" class="text-xs text-rose-400 hover:text-rose-300 border border-rose-500/20 px-3 py-1.5 rounded-xl hover:bg-rose-500/10 transition-all">
+                細目清空 🧹
+              </button>
+            </div>
+            
+            <div class="overflow-y-auto max-h-[350px] pr-2 divide-y divide-white/5" id="all-astronauts-logs">
+              <!-- JS 動態渲染所有人的交易歷史明細 -->
+            </div>
+          </div>
+
+          <!-- 右側：太空資產分布比例大數據 -->
+          <div class="lg:col-span-5 glass p-8 rounded-3xl space-y-4">
+            <h3 class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-100 flex items-center gap-2 border-b border-white/10 pb-4">
+              <span>📊</span> 全艦太空資產總額比例
+            </h3>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              統計本班所有宇航員之活期存款餘額、活躍定期存款總額與證券交易所持倉總市值之總和分佈。
+            </p>
+            <div class="relative h-64 flex items-center justify-center">
+              <canvas id="teacherClassAssetDonutChart"></canvas>
+            </div>
+            <div class="text-center text-xs text-indigo-300 font-mono font-bold" id="teacher-class-total-assets">
+              全體總資產估值: --- 🪙
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- 3. 宇航員個人艙 -->
+      <section id="view-student" class="view-section space-y-8">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <!-- 個人卡片與自訂外觀 -->
+          <div class="lg:col-span-4 space-y-6">
+            <div id="personal-card-container">
+              <!-- 精美 SVG 宇宙卡片動態渲染 -->
+            </div>
+
+            <!-- 個人艙資產配置圖 -->
+            <div class="glass p-6 rounded-3xl space-y-4">
+              <h4 class="text-sm font-bold text-indigo-300">📊 太空資產分布比例</h4>
+              <div class="relative h-48 flex items-center justify-center">
+                <canvas id="assetDonutChart"></canvas>
+              </div>
+              <div class="text-center text-xs text-slate-400 font-bold" id="total-asset-label">
+                資產總估值: --- 🪙
+              </div>
+            </div>
+
+            <!-- 自訂外觀 -->
+            <div class="glass p-6 rounded-3xl space-y-4">
+              <h4 class="text-sm font-bold flex items-center gap-2 text-indigo-300">🎨 艙身卡面樣式自訂</h4>
+              <p class="text-xs text-slate-400">點擊下方樣式可即時變更您的宇宙卡片造型圖案：</p>
+              <div class="grid grid-cols-5 gap-2">
+                <button onclick="setTheme('gold')" class="h-10 rounded-xl bg-indigo-950 border border-amber-500/50 flex items-center justify-center hover:scale-105 transition-transform" title="月亮夢境">🌙</button>
+                <button onclick="setTheme('dark')" class="h-10 rounded-xl bg-amber-950 border border-orange-500/50 flex items-center justify-center hover:scale-105 transition-transform" title="火星火箭">🚀</button>
+                <button onclick="setTheme('blue')" class="h-10 rounded-xl bg-slate-900 border border-blue-500/50 flex items-center justify-center hover:scale-105 transition-transform" title="土星光環">🪐</button>
+                <button onclick="setTheme('green')" class="h-10 rounded-xl bg-emerald-950 border border-emerald-500/50 flex items-center justify-center hover:scale-105 transition-transform" title="幽浮奇遇">🛸</button>
+                <button onclick="setTheme('pink')" class="h-10 rounded-xl bg-fuchsia-950 border border-pink-500/50 flex items-center justify-center hover:scale-105 transition-transform" title="星河糖果">🍭</button>
+              </div>
+            </div>
+
+            <!-- 自訂修改密碼區 -->
+            <div class="glass p-6 rounded-3xl space-y-4">
+              <h4 class="text-sm font-bold flex items-center gap-2 text-indigo-300">🔐 艙防登入密碼變更</h4>
+              <p class="text-xs text-slate-400">在此重設您的登機密碼。下次登入控制台時即須套用新密碼：</p>
+              <div class="space-y-3">
+                <input type="password" id="student-new-password" placeholder="請輸入 3-12 字元新密碼..." class="w-full bg-black/50 border border-white/10 p-3 rounded-xl text-center text-white outline-none font-mono text-sm focus:border-indigo-500">
+                <button onclick="changeStudentPassword()" class="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl font-bold text-xs text-white hover:opacity-90 transition-all shadow-md shadow-indigo-500/20">確認變更密碼</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 宇航員操作區 -->
+          <div class="lg:col-span-8 space-y-6">
+            <div id="student-tab-bar" class="flex bg-black/30 p-1 rounded-2xl border border-white/10">
+              <!-- 依權限動態生成 Tab -->
+            </div>
+            
+            <div id="st-content" class="min-h-[400px]">
+              <!-- 動態內容 -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 財富排行榜 -->
+      <div class="mt-20 glass p-8 rounded-3xl">
+        <h3 class="text-xl font-bold mb-8 text-center flex items-center justify-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-amber-100">
+          <span>🏆</span> 星系宇航員財富與成就排行榜
+        </h3>
+        <div id="leaderboard" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- JS 生成 -->
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    // --- 核心資料與狀態 ---
+    let state = {
+      currentDay: parseInt(localStorage.getItem('cosmic_day')) || 1,
+      isCaptainVerified: false, // 記憶體中暫存認證，重整頁面後即失效
+      captainPasscode: localStorage.getItem('cosmic_captain_passcode') || '8888', // 艦長安全驗證密碼
+      visibleTabs: JSON.parse(localStorage.getItem('cosmic_visible_tabs')) || {
+        store: true,
+        bank: true,
+        invest: true,
+        history: true
+      },
+      // 學生預設內建密碼分別為：'113'、'122'、'205'
+      students: JSON.parse(localStorage.getItem('cosmic_students')) || [
+        { id: "G50113", name: "王小明", password: "113", balance: 1450, theme: "blue", holdings: {} },
+        { id: "G50122", name: "陳小華", password: "122", balance: 980, theme: "pink", holdings: {} },
+        { id: "G60205", name: "張育誠", password: "205", balance: 2200, theme: "gold", holdings: {} }
+      ],
+      currentView: 'student', // 預設宇航員個人艙視圖，保護艦長功能
+      terminalMode: 'earn',
+      selectedStudentId: "G50113",
+      studentTab: 'store',
+      tasks: JSON.parse(localStorage.getItem('cosmic_tasks')) || [
+        { id: 't1', name: "主動發表與課堂提問", amount: 20 },
+        { id: 't2', name: "完成自主探究小進度", amount: 50 },
+        { id: 't3', name: "協助並指導同學解答", amount: 30 },
+        { id: 't4', name: "專題研究發表優良", amount: 100 }
+      ],
+      items: JSON.parse(localStorage.getItem('cosmic_items')) || [
+        { id: 'i1', name: "星空太空艙扭蛋券", price: 150, icon: "🥚", stock: 10 },
+        { id: 'i2', name: "教室自主挑選座位卡", price: 350, icon: "🪑", stock: 5 },
+        { id: 'i3', name: "宇宙提前下課5分鐘券", price: 500, icon: "🏃", stock: 2 },
+        { id: 'i4', name: "課堂能量補充包零食", price: 100, icon: "🍫", stock: 20 }
+      ],
+      deposits: JSON.parse(localStorage.getItem('cosmic_deposits')) || [],
+      
+      // 投資市場配置 (股票維持 3 檔，基金增加至 3 檔，債券增加至 3 檔)
+      marketProducts: JSON.parse(localStorage.getItem('cosmic_market')) || [
+        { id: "stock1", type: "stock", name: "🚀 星際重工 (Star Heavy)", price: 100, volatility: 0.15, trend: 0.02, history: [100] },
+        { id: "stock2", type: "stock", name: "☄️ 星雲採礦 (Nebula Mining)", price: 60, volatility: 0.20, trend: -0.01, history: [60] },
+        { id: "stock3", type: "stock", name: "🛰️ 軌道通訊 (Orbital Telecom)", price: 80, volatility: 0.12, trend: 0.01, history: [80] },
+        { id: "fund1", type: "fund", name: "🤖 AI智慧算力基金 (AI Compute)", price: 120, volatility: 0.08, trend: 0.03, history: [120] },
+        { id: "fund2", type: "fund", name: "🌱 綠能永續基金 (Cosmic Green)", price: 90, volatility: 0.06, trend: 0.01, history: [90] },
+        { id: "fund3", type: "fund", name: "🔮 暗物質前沿基金 (Dark Matter)", price: 110, volatility: 0.10, trend: 0.015, history: [110] },
+        { id: "bond1", type: "bond", name: "🪐 星系聯邦政府債 (Galactic Bond)", price: 150, volatility: 0.01, trend: 0.005, history: [150] },
+        { id: "bond2", type: "bond", name: "🛰️ 空間站建設債券 (Station Bond)", price: 200, volatility: 0.015, trend: 0.006, history: [200] },
+        { id: "bond3", type: "bond", name: "☄️ 彗星能源特許債 (Comet Energy)", price: 130, volatility: 0.02, trend: 0.007, history: [130] }
+      ],
+      
+      logs: JSON.parse(localStorage.getItem('cosmic_logs')) || [
+        { id: 'l1', studentId: "G50113", type: "earn", amount: 50, desc: "完成自主探究小進度", time: "星際曆 第 1 天" }
+      ]
+    };
+
+    let assetChartInstance = null;
+    let teacherAssetChartInstance = null; // 艦長大數據 Chart.js 實例
+
+    // ==================== 登入邏輯系統 ====================
+    let loginRole = 'student'; // 'student' | 'captain'
+
+    function setLoginRole(role) {
+      loginRole = role;
+      const tabStudent = document.getElementById('login-tab-student');
+      const tabCaptain = document.getElementById('login-tab-captain');
+      const panelStudent = document.getElementById('login-panel-student');
+      const panelCaptain = document.getElementById('login-panel-captain');
+
+      if (role === 'student') {
+        tabStudent.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all text-white bg-gradient-to-r from-indigo-600 to-purple-600 shadow-md";
+        tabCaptain.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white";
+        panelStudent.classList.remove('hidden');
+        panelCaptain.classList.add('hidden');
+      } else {
+        tabStudent.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all text-slate-400 hover:text-white";
+        tabCaptain.className = "flex-1 py-3 rounded-xl text-sm font-bold transition-all text-white bg-gradient-to-r from-amber-500 to-orange-600 shadow-md";
+        panelStudent.classList.add('hidden');
+        panelCaptain.classList.remove('hidden');
+      }
+    }
+
+    // 嘗試宇航員登入
+    function attemptStudentLogin() {
+      const id = document.getElementById('login-student-id').value.trim();
+      const pass = document.getElementById('login-student-pass').value.trim();
+      if (!id) {
+        showToast("⚠️ 登入失敗", "請先輸入您的宇航員登機編號！", "error");
+        return;
+      }
+      if (!pass) {
+        showToast("⚠️ 登入失敗", "請先輸入您的登入密碼！", "error");
+        return;
+      }
+
+      const student = state.students.find(s => s.id === id);
+      if (student) {
+        if (student.password === pass) {
+          state.selectedStudentId = id;
+          state.isCaptainVerified = false; // 宇航員身份，不開啟艦長功能
+          
+          // 切換主頁面
+          document.getElementById('view-login').classList.add('hidden');
+          document.getElementById('app-workspace').classList.remove('hidden');
+          
+          showToast("🚀 艙門開啟", `歡迎回來，宇航員 [${student.name}]！`, "success");
+          playBeep(true);
+          updateNavigationUI();
+          executeShowView('student');
+          
+          // 清除登入輸入框
+          document.getElementById('login-student-id').value = '';
+          document.getElementById('login-student-pass').value = '';
+        } else {
+          showToast("❌ 驗證失敗", "您輸入的登入密碼錯誤，請核對後重新嘗試！", "error");
+          playBeep(false);
+        }
+      } else {
+        showToast("❌ 驗證失敗", "資料庫中找不到此登機編號，請核對！", "error");
+        playBeep(false);
+      }
+    }
+
+    // 嘗試艦長登入
+    function attemptCaptainLogin() {
+      const pass = document.getElementById('login-captain-pass').value.trim();
+      if (!pass) {
+        showToast("⚠️ 認證失敗", "請輸入安全認證密鑰！", "error");
+        return;
+      }
+
+      if (pass === state.captainPasscode) {
+        state.isCaptainVerified = true;
+        
+        // 清空登入欄
+        document.getElementById('login-captain-pass').value = '';
+
+        // 切換主頁面
+        document.getElementById('view-login').classList.add('hidden');
+        document.getElementById('app-workspace').classList.remove('hidden');
+
+        showToast("🔓 權限解除", "歡迎登入控制端，艦長！所有高階智慧控制模組皆已就緒。", "success");
+        playBeep(true);
+        updateNavigationUI();
+        executeShowView('teacher'); // 預設進入艦長後台
+      } else {
+        showToast("❌ 認證失敗", "安全認證密碼錯誤，拒絕登入後台！", "error");
+        playBeep(false);
+      }
+    }
+
+    // 登出系統歸回門戶
+    function logoutSystem() {
+      state.isCaptainVerified = false;
+      document.getElementById('app-workspace').classList.add('hidden');
+      document.getElementById('view-login').classList.remove('hidden');
+      
+      // 重置登入輸入框
+      document.getElementById('login-student-id').value = '';
+      document.getElementById('login-student-pass').value = '';
+      document.getElementById('login-captain-pass').value = '';
+      
+      showToast("🚪 已安全登出", "您已順利離開星際控制台。", "success");
+      playBeep(true);
+      updateNavigationUI();
+    }
+
+    // --- 各式精美手繪星空天體 SVG 卡片模板產生器 ---
+    function generateCardHTML(student, isSmall = false) {
+      const svgSize = isSmall ? 'w-16 h-16 right-1.5 bottom-1.5' : 'w-28 h-28 right-3 bottom-3';
+      
+      const themes = {
+        gold: {
+          title: "月亮夢境",
+          bg: "linear-gradient(135deg, #0f1026, #2d124d, #3c093c)",
+          text: "text-amber-100",
+          subText: "text-amber-300/80",
+          svg: `<svg class="absolute ${svgSize} opacity-70 text-amber-300 animate-pulse" viewBox="0 0 100 100" fill="currentColor">
+                  <line x1="20" y1="0" x2="20" y2="45" stroke="#fde047" stroke-width="0.7" stroke-dasharray="1,1" opacity="0.6"/>
+                  <line x1="80" y1="0" x2="80" y2="25" stroke="#fde047" stroke-width="0.7" stroke-dasharray="1,1" opacity="0.6"/>
+                  <polygon points="20,45 22,48 25,48 23,51 24,55 20,53 16,55 17,51 15,48 18,48" fill="#fde047" />
+                  <polygon points="80,25 81,27 83,27 81,29 82,31 80,30 78,31 79,29 77,27 79,27" fill="#fff" opacity="0.9"/>
+                  <path d="M55 15 C35 15 20 32 20 55 C20 72 32 85 50 87 C28 77 30 45 55 35 C68 30 78 32 82 38 C75 24 66 15 55 15 Z" fill="#fef08a" filter="drop-shadow(0 0 6px rgba(253,224,71,0.5))" />
+                  <path d="M52 16 C48 10 38 12 36 6 C38 4 45 4 49 10 C51 13 52 15 52 16 Z" fill="#f43f5e" />
+                  <circle cx="36" cy="6" r="2.5" fill="#fff" />
+                  <path d="M34 52 Q37 55 40 52" stroke="#1e1b4b" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+                  <circle cx="31" cy="56" r="2" fill="#fda4af" opacity="0.8"/>
+                </svg>`,
+          icon: "🌙"
+        },
+        dark: {
+          title: "火星火箭",
+          bg: "linear-gradient(135deg, #470512, #7c1a05, #1c1917)",
+          text: "text-orange-100",
+          subText: "text-orange-300/80",
+          svg: `<svg class="absolute ${svgSize} opacity-75" viewBox="0 0 100 100">
+                  <path d="M30 75 Q20 85 10 95 Q25 90 35 80 Z" fill="#ef4444" opacity="0.9"/>
+                  <path d="M32 72 Q25 78 18 88 Q25 84 32 78 Z" fill="#f97316" opacity="0.95"/>
+                  <path d="M35 70 Q30 74 25 80 Q30 78 35 72 Z" fill="#facc15" opacity="1"/>
+                  <circle cx="15" cy="85" r="3" fill="#ef4444" opacity="0.7"/>
+                  <circle cx="22" cy="78" r="2.5" fill="#f97316" opacity="0.8"/>
+                  <g transform="rotate(45 50 50)">
+                    <path d="M42 65 L30 75 L38 85 L44 75 Z" fill="#94a3b8" />
+                    <path d="M58 65 L70 75 L62 85 L56 75 Z" fill="#94a3b8" />
+                    <path d="M42 30 C42 10 58 10 58 30 L58 75 L42 75 Z" fill="#f1f5f9" />
+                    <path d="M42 20 C42 10 58 10 58 20 Z" fill="#ef4444" />
+                    <circle cx="50" cy="42" r="4.5" fill="#38bdf8" stroke="#cbd5e1" stroke-width="1.5" />
+                  </g>
+                </svg>`,
+          icon: "🚀"
+        },
+        blue: {
+          title: "土星光環",
+          bg: "linear-gradient(135deg, #09132e, #132863, #020617)",
+          text: "text-blue-100",
+          subText: "text-blue-300/80",
+          svg: `<svg class="absolute ${svgSize} opacity-70" viewBox="0 0 100 100">
+                  <circle cx="25" cy="20" r="1" fill="#fff" opacity="0.8"/>
+                  <circle cx="85" cy="40" r="1.5" fill="#fff" opacity="0.5"/>
+                  <circle cx="20" cy="45" r="2.5" fill="#93c5fd" />
+                  <circle cx="80" cy="75" r="1.5" fill="#60a5fa" />
+                  <circle cx="50" cy="50" r="19" fill="#fed7aa" filter="drop-shadow(0 0 4px rgba(254,215,170,0.3))" />
+                  <path d="M31.5 48 C35 44 65 44 68.5 48 C65 50 35 50 31.5 48 Z" fill="#f97316" opacity="0.3"/>
+                  <path d="M31 52 C35 54 65 54 69 52 C65 51 35 51 31 52 Z" fill="#ea580c" opacity="0.2"/>
+                  <ellipse cx="50" cy="50" rx="39" ry="8" transform="rotate(-15 50 50)" stroke="#fed7aa" stroke-width="3" fill="none" opacity="0.9" />
+                  <ellipse cx="50" cy="50" rx="34" ry="6.5" transform="rotate(-15 50 50)" stroke="#f97316" stroke-width="1.2" fill="none" opacity="0.7" />
+                </svg>`,
+          icon: "🪐"
+        },
+        green: {
+          title: "幽浮奇遇",
+          bg: "linear-gradient(135deg, #022013, #044225, #020617)",
+          text: "text-emerald-100",
+          subText: "text-emerald-400/80",
+          svg: `<svg class="absolute ${svgSize} opacity-75" viewBox="0 0 100 100">
+                  <polygon points="50,45 25,95 75,95" fill="url(#ufo-beam)" opacity="0.3" />
+                  <path d="M35 40 C35 25 65 25 65 40 Z" fill="#a7f3d0" opacity="0.8"/>
+                  <circle cx="50" cy="32" r="3.5" fill="#fff" />
+                  <ellipse cx="50" cy="42" rx="26" ry="7" fill="#34d399" filter="drop-shadow(0 0 5px rgba(52,211,153,0.6))" />
+                  <circle cx="32" cy="42" r="1.5" fill="#fff" />
+                  <circle cx="41" cy="44" r="1.5" fill="#fff" />
+                  <circle cx="50" cy="44" r="1.5" fill="#fff" />
+                  <circle cx="59" cy="44" r="1.5" fill="#fff" />
+                  <circle cx="68" cy="42" r="1.5" fill="#fff" />
+                  <defs>
+                    <linearGradient id="ufo-beam" x1="50%" y1="0%" x2="50%" y2="100%">
+                      <stop offset="0%" stop-color="#fef08a" stop-opacity="1"/>
+                      <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
+                    </linearGradient>
+                  </defs>
+                </svg>`,
+          icon: "🛸"
+        },
+        pink: {
+          title: "星河糖果",
+          bg: "linear-gradient(135deg, #3b0742, #701a75, #ec4899)",
+          text: "text-pink-100",
+          subText: "text-pink-200/80",
+          svg: `<svg class="absolute ${svgSize} opacity-75 animate-spin" style="animation-duration: 25s;" viewBox="0 0 100 100" fill="currentColor">
+                  <path d="M50 50 C55 35 70 30 75 40 C65 45 55 45 50 50 Z" fill="#fbcfe8" opacity="0.8" />
+                  <path d="M50 50 C45 65 30 70 25 60 C35 55 45 55 50 50 Z" fill="#fbcfe8" opacity="0.8" />
+                  <path d="M50 50 C35 45 30 30 40 25 C45 35 45 45 50 50 Z" fill="#fbcfe8" opacity="0.6" />
+                  <path d="M50 50 C65 55 70 70 60 75 C55 65 55 55 50 50 Z" fill="#fbcfe8" opacity="0.6" />
+                  <circle cx="50" cy="50" r="9" fill="#fdf2f8" filter="drop-shadow(0 0 6px #f472b6)" />
+                  <polygon points="22,25 24,28 27,28 25,30 26,33 22,31 18,33 19,30 17,28 20,28" fill="#fde047" />
+                  <polygon points="76,70 78,73 81,73 79,75 80,78 76,76 72,78 73,75 71,73 74,73" fill="#a7f3d0" />
+                  <circle cx="80" cy="22" r="3" fill="#818cf8" />
+                  <circle cx="20" cy="72" r="2.5" fill="#f472b6" />
+                </svg>`,
+          icon: "🍭"
+        }
+      };
+
+      const theme = themes[student.theme] || themes.blue;
+      const sizeClass = isSmall ? 'aspect-[1.58/1] text-xs p-5' : 'aspect-[1.58/1] text-base p-8';
+
+      // 擬真卡片金屬晶片 (Chip)
+      const cardChip = `
+        <div class="${isSmall ? 'w-8 h-6 rounded' : 'w-12 h-9 rounded-lg'} bg-gradient-to-tr from-amber-300 to-amber-500 p-0.5 flex flex-col gap-0.5 shadow-inner border border-amber-600/30">
+          <div class="border border-amber-950/20 rounded-sm h-full opacity-60"></div>
+        </div>
+      `;
+
+      return `
+        <div class="relative overflow-hidden rounded-3xl border border-white/10 shadow-2xl transition-all duration-300 ${sizeClass}" style="background: ${theme.bg};">
+          ${theme.svg}
+          <div class="relative z-10 flex flex-col justify-between h-full ${theme.text}">
+            
+            <!-- 上半部資訊 -->
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[9px] font-bold tracking-widest opacity-80 uppercase font-mono">Gifted Cosmic Passport</p>
+                <h2 class="${isSmall ? 'text-base' : 'text-2xl'} font-bold mt-1 tracking-tight">${student.name}</h2>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="${isSmall ? 'text-xl' : 'text-3xl'}">${theme.icon}</div>
+              </div>
+            </div>
+
+            <!-- 中間部：擬真晶片與感應燈標示 -->
+            <div class="flex justify-between items-center my-1">
+              ${cardChip}
+              <div class="text-[8px] opacity-60 flex items-center gap-1">
+                <span class="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-ping"></span> SENSING ACTIVE
+              </div>
+            </div>
+
+            <!-- 卡號資訊 -->
+            <div>
+              <p class="text-[8px] opacity-70 tracking-widest uppercase font-mono">ASTRONAUT ID (CARD NO)</p>
+              <p class="font-mono tracking-wider font-bold ${isSmall ? 'text-[10px]' : 'text-sm'}">4588 2026 ${student.id.padEnd(8, '0').match(/.{1,4}/g).join(' ')}</p>
+            </div>
+
+            <!-- 下半部：餘額 -->
+            <div class="flex justify-between items-end">
+              <div class="bg-white/15 px-3 py-1 rounded-full text-[9px] backdrop-blur-sm border border-white/10 font-bold">ASTRONAUT</div>
+              <div class="text-right">
+                <p class="text-[9px] opacity-70">BALANCE</p>
+                <p class="${isSmall ? 'text-lg' : 'text-3xl'} font-bold font-mono tracking-tight text-amber-300">${student.balance} 🪙</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      `;
+    }
+
+    // --- 動態背景星空初始化 ---
+    function initStars() {
+      const field = document.getElementById('star-field');
+      field.innerHTML = '';
+      for (let i = 0; i < 150; i++) {
+        const star = document.createElement('div');
+        star.className = 'star';
+        const size = Math.random() * 3 + 'px';
+        star.style.width = size;
+        star.style.height = size;
+        star.style.left = Math.random() * 100 + '%';
+        star.style.top = Math.random() * 100 + '%';
+        star.style.setProperty('--duration', Math.random() * 3 + 2 + 's');
+        field.appendChild(star);
+      }
+    }
+
+    // --- 星際 Toast 提示通知器 ---
+    function showToast(title, desc, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `glass p-4 rounded-2xl shadow-2xl flex items-center gap-4 transition-all duration-300 transform translate-x-full opacity-0 pointer-events-auto border-l-4 ${
+        type === 'success' ? 'border-l-emerald-500' : 'border-l-rose-500'
+      }`;
+      toast.innerHTML = `
+        <div class="text-2xl">${type === 'success' ? '🚀' : '🛸'}</div>
+        <div>
+          <p class="font-bold text-sm text-white">${title}</p>
+          <p class="text-xs text-indigo-200">${desc}</p>
+        </div>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.classList.remove('translate-x-full', 'opacity-0');
+      }, 10);
+      setTimeout(() => {
+        toast.classList.add('translate-x-full', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // --- 星際音效系統 (物理合成模擬嗶卡) ---
+    function playBeep(success) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = success ? 'sine' : 'square';
+        osc.frequency.setValueAtTime(success ? 880 : 220, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + (success ? 0.25 : 0.45));
+      } catch(e) {
+        // 防止瀏覽器阻擋
+      }
+    }
+
+    // --- 星際自訂對話彈窗核心 ---
+    function triggerCosmicDialog({ title, message, icon = '🛸', showCancel = false, showInput = false, inputPlaceholder = '請輸入數值...', onOk }) {
+      const overlay = document.getElementById('cosmic-dialog-overlay');
+      const titleEl = document.getElementById('dialog-title');
+      const msgEl = document.getElementById('dialog-msg');
+      const iconEl = document.getElementById('dialog-icon');
+      const inputContainer = document.getElementById('dialog-input-container');
+      const inputEl = document.getElementById('dialog-input');
+      const cancelBtn = document.getElementById('dialog-btn-cancel');
+      const okBtn = document.getElementById('dialog-btn-ok');
+
+      // 設置文案與圖標
+      titleEl.innerText = title;
+      msgEl.innerText = message;
+      iconEl.innerText = icon;
+
+      // 輸入框處理
+      if (showInput) {
+        inputContainer.classList.remove('hidden');
+        inputEl.value = '';
+        inputEl.placeholder = inputPlaceholder;
+      } else {
+        inputContainer.classList.add('hidden');
+      }
+
+      // 取消按鈕處理
+      if (showCancel) {
+        cancelBtn.classList.remove('hidden');
+      } else {
+        cancelBtn.classList.add('hidden');
+      }
+
+      overlay.classList.remove('hidden');
+
+      // 事件綁定
+      okBtn.onclick = () => {
+        let val = null;
+        if (showInput) {
+          val = inputEl.value.trim();
+        }
+        overlay.classList.add('hidden');
+        if (onOk) onOk(val);
+      };
+
+      cancelBtn.onclick = () => {
+        overlay.classList.add('hidden');
+      };
+    }
+
+    // --- 嗶卡機模式與設定 ---
+    function setMode(mode) {
+      state.terminalMode = mode;
+      document.getElementById('mode-earn').className = mode === 'earn' ? 'flex-1 py-4 rounded-2xl border-2 border-emerald-500 bg-emerald-500/20 font-bold text-emerald-400' : 'flex-1 py-4 rounded-2xl border-2 border-slate-700 bg-slate-800/40 font-bold text-slate-400';
+      document.getElementById('mode-spend').className = mode === 'spend' ? 'flex-1 py-4 rounded-2xl border-2 border-rose-500 bg-rose-500/20 font-bold text-rose-400' : 'flex-1 py-4 rounded-2xl border-2 border-slate-700 bg-slate-800/40 font-bold text-slate-400';
+      renderTerminalActions();
+    }
+
+    // --- 選擇事件或商店品項至選擇框 (過濾掉庫存不大於 0 的商品，直接隱藏下架) ---
+    function renderTerminalActions() {
+      const select = document.getElementById('action-select');
+      select.innerHTML = '';
+      
+      const list = state.terminalMode === 'earn' 
+        ? state.tasks 
+        : state.items.filter(item => item.stock === undefined || item.stock > 0);
+        
+      list.forEach(item => {
+        const suffix = item.stock !== undefined ? ` | 庫存: ${item.stock}` : '';
+        select.innerHTML += `<option value="${item.id}">${item.name} (${item.amount ? '+' : '-'}${item.amount || item.price} 幣${suffix})</option>`;
+      });
+      
+      // 新增自訂選項
+      select.innerHTML += `<option value="custom">✨ 自訂事件與金額...</option>`;
+      toggleCustomInputs();
+    }
+
+    // 新增：切換顯示自訂事件/金額之輸入欄位
+    function toggleCustomInputs() {
+      const select = document.getElementById('action-select');
+      const customInputs = document.getElementById('custom-action-inputs');
+      if (select && select.value === 'custom') {
+        customInputs.classList.remove('hidden');
+      } else if (customInputs) {
+        customInputs.classList.add('hidden');
+      }
+    }
+
+    // --- 渲染宇航員感應卡名冊 ---
+    function renderTerminalCards() {
+      const container = document.getElementById('terminal-cards');
+      const search = document.getElementById('student-search').value.toLowerCase();
+      container.innerHTML = '';
+      
+      const filtered = state.students.filter(s => s.name.includes(search) || s.id.includes(search));
+      if(filtered.length === 0) {
+        container.innerHTML = `<p class="text-slate-400 text-sm col-span-2 text-center py-8">找不到此登機編號或姓名...</p>`;
+        return;
+      }
+
+      filtered.forEach(s => {
+        container.innerHTML += `
+          <div onclick="tapCard('${s.id}')" class="cursor-pointer hover:scale-[1.03] active:scale-95 transition-all duration-300">
+            ${generateCardHTML(s, true)}
+          </div>
+        `;
+      });
+    }
+
+    // --- 嗶卡感應核心邏輯 (扣款後自動刷新選單並扣減庫存，庫存 0 時自動下架) ---
+    function tapCard(id) {
+      const student = state.students.find(s => s.id === id);
+      if(!student) return;
+
+      const selectElement = document.getElementById('action-select');
+      let amount, reason;
+      let targetItem = null;
+
+      if (selectElement.value === 'custom') {
+        const customName = document.getElementById('custom-action-name').value.trim();
+        const customAmt = parseInt(document.getElementById('custom-action-amount').value);
+
+        if (!customName) {
+          showToast("⚠️ 輸入錯誤", "請先填寫自訂事由名稱！", "error");
+          playBeep(false);
+          return;
+        }
+        if (isNaN(customAmt) || customAmt <= 0) {
+          showToast("⚠️ 輸入錯誤", "請輸入有效的金幣金額！", "error");
+          playBeep(false);
+          return;
+        }
+        amount = customAmt;
+        reason = `自訂事由: ${customName}`;
+      } else {
+        const selectedId = selectElement.value;
+        if (state.terminalMode === 'earn') {
+          const task = state.tasks.find(t => t.id === selectedId);
+          if (!task) return;
+          amount = task.amount;
+          reason = task.name;
+        } else {
+          targetItem = state.items.find(i => i.id === selectedId);
+          if (!targetItem) return;
+          amount = targetItem.price;
+          reason = targetItem.name;
+
+          // 檢查庫存數量限制
+          if (targetItem.stock !== undefined && targetItem.stock <= 0) {
+            showToast("❌ 庫存售罄", `[${targetItem.name}] 目前已無庫存，無法扣款！`, "error");
+            playBeep(false);
+            return;
+          }
+        }
+      }
+
+      // 觸發重力波紋與音效
+      createRipple();
+
+      if (state.terminalMode === 'earn') {
+        student.balance += amount;
+        logTransaction(student.id, "earn", amount, reason);
+        showToast("✅ 感應成功", `宇航員 [${student.name}] 已獲得 ${amount} 金幣！`, "success");
+        playBeep(true);
+      } else {
+        if (student.balance < amount) {
+          showToast("❌ 餘額不足", `宇航員 [${student.name}] 餘額僅 ${student.balance} 金幣，不足以支付！`, "error");
+          playBeep(false);
+          return;
+        }
+        student.balance -= amount;
+        
+        // 扣除庫存量
+        if (targetItem && targetItem.stock !== undefined) {
+          targetItem.stock = Math.max(0, targetItem.stock - 1);
+        }
+        
+        logTransaction(student.id, "spend", amount, `購買 ${reason}`);
+        showToast("🛍️ 購買成功", `已自宇航員 [${student.name}] 的戶頭扣除 ${amount} 金幣。`, "success");
+        playBeep(true);
+      }
+      
+      renderTerminalCards();
+      save();
+      renderTerminalActions(); // 交易完成後立刻重新渲染下拉選單，讓庫存數字即時更新
+    }
+
+    function logTransaction(studentId, type, amount, desc) {
+      state.logs.unshift({
+        id: 'l_' + Date.now(),
+        studentId,
+        type,
+        amount,
+        desc,
+        time: `星際曆 第 ${state.currentDay} 天`
+      });
+    }
+
+    // --- 產生嗶卡時的重力波紋漣漪效果 ---
+    function createRipple() {
+      const container = document.getElementById('ripple-container');
+      const ripple = document.createElement('div');
+      ripple.className = 'ripple w-36 h-36';
+      container.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 800);
+    }
+
+    function triggerManualSelectionTap() {
+      showToast("💡 嗶卡小秘訣", "請在右側的名單點擊 any 宇航員卡片，即可模擬將其實體嗶卡感應！", "success");
+    }
+
+    function handleManualTap() {
+      const id = document.getElementById('manual-id').value.trim();
+      if (!id) {
+        showToast("⚠️ 輸入錯誤", "請先輸入宇航員的登機編號再進行嗶卡！", "error");
+        return;
+      }
+      const student = state.students.find(s => s.id === id);
+      if (student) {
+        tapCard(id);
+        document.getElementById('manual-id').value = '';
+      } else {
+        showToast("❌ 找不到此宇航員", "請檢查編號是否輸入正確。", "error");
+      }
+    }
+
+    // --- 時間推進系統 ---
+    function advanceTime(days) {
+      for (let d = 0; d < days; d++) {
+        state.currentDay += 1;
+        
+        // 1. 活存每日利息發放 (預設每日活存利息 0.1%)
+        state.students.forEach(s => {
+          if (s.balance > 0) {
+            const interest = Math.max(1, Math.round(s.balance * 0.001)); // 最少 1 幣
+            s.balance += interest;
+            state.logs.unshift({
+              id: 'l_int_' + Date.now() + '_' + s.id,
+              studentId: s.id,
+              type: "earn",
+              amount: interest,
+              desc: `活期存款日息派發`,
+              time: `星際曆 第 ${state.currentDay} 天`
+            });
+          }
+        });
+
+        // 2. 結算定存合約
+        state.deposits.forEach(dep => {
+          if (dep.active) {
+            dep.remainingDays -= 1;
+            if (dep.remainingDays <= 0) {
+              dep.active = false;
+              const student = state.students.find(s => s.id === dep.studentId);
+              if (student) {
+                const payout = dep.amount + dep.interest;
+                student.balance += payout;
+                logTransaction(student.id, "earn", payout, `🏦 定存合約到期解鎖，本息入帳`);
+                showToast("🔔 定存解鎖通知", `恭喜宇航員 [${student.name}] 的 ${dep.amount} 🪙 定存已到期，本金與利息共獲得 ${payout} 🪙！`, "success");
+              }
+            }
+          }
+        });
+
+        // 3. 虛擬金融證券市場走勢更新 (股票、基金、債券產品多樣走勢)
+        state.marketProducts.forEach(prod => {
+          const changePercent = (Math.random() - 0.5) * 2 * prod.volatility + prod.trend;
+          const oldPrice = prod.price;
+          prod.price = Math.max(10, Math.round(oldPrice * (1 + changePercent)));
+          if (!prod.history) prod.history = [oldPrice];
+          prod.history.push(prod.price);
+          if (prod.history.length > 20) prod.history.shift();
+        });
+      }
+
+      save();
+      updateCosmicClock();
+      
+      if (state.currentView === 'terminal') {
+        renderTerminalCards();
+      } else if (state.currentView === 'student') {
+        loadStudentDashboard();
+      } else if (state.currentView === 'teacher') {
+        renderTeacherTable();
+        renderTeacherAllLogs();
+        renderTeacherClassAssetChart();
+      }
+      
+      showToast("🌌 星空時間推進", `時間向前流逝了 ${days} 天，利息與證券市場已完成重新結算！`, "success");
+    }
+
+    function updateCosmicClock() {
+      document.getElementById('cosmic-date-display').innerText = `第 ${state.currentDay} 週期 (天)`;
+      localStorage.setItem('cosmic_day', state.currentDay);
+    }
+
+    // --- 宇航員權限控制邏輯 ---
+    function toggleStudentTab(tabName) {
+      const checkbox = document.getElementById(`toggle-${tabName}`);
+      state.visibleTabs[tabName] = checkbox.checked;
+      
+      if (!checkbox.checked && state.studentTab === tabName) {
+        state.studentTab = getFirstAvailableStudentTab();
+      }
+
+      save();
+      
+      if (state.currentView === 'student') {
+        loadStudentDashboard();
+      }
+      showToast("⚙️ 權限已變更", `已即時更新宇航員端權限之發布。`, "success");
+    }
+
+    function getFirstAvailableStudentTab() {
+      const order = ['store', 'bank', 'invest', 'history'];
+      for (let t of order) {
+        if (state.visibleTabs[t]) return t;
+      }
+      return 'none';
+    }
+
+    function syncPermissionCheckboxes() {
+      const order = ['store', 'bank', 'invest', 'history'];
+      order.forEach(t => {
+        const checkbox = document.getElementById(`toggle-${t}`);
+        if(checkbox) checkbox.checked = state.visibleTabs[t];
+      });
+    }
+
+    // --- 變更艦長安全密碼 ---
+    function changeCaptainPasscode() {
+      const input = document.getElementById('new-passcode-input');
+      const newPass = input.value.trim();
+      
+      if (!newPass) {
+        showToast("⚠️ 變更失敗", "認證密碼不能為空白！", "error");
+        return;
+      }
+      
+      if (newPass.length < 4 || newPass.length > 8) {
+        showToast("⚠️ 變更失敗", "安全密碼長度必須介於 4 到 8 位數！", "error");
+        return;
+      }
+
+      state.captainPasscode = newPass;
+      localStorage.setItem('cosmic_captain_passcode', newPass);
+      input.value = '';
+      showToast("🔒 密碼已變更", "艦長認證密碼修改成功，新密碼已即時生效！", "success");
+    }
+
+    // --- 宇航員自主修改密碼邏輯 ---
+    function changeStudentPassword() {
+      const newPassInput = document.getElementById('student-new-password');
+      const newPass = newPassInput.value.trim();
+      
+      if (!newPass) {
+        showToast("⚠️ 修改失敗", "登入新密碼不能為空白！", "error");
+        return;
+      }
+      
+      if (newPass.length < 3 || newPass.length > 12) {
+        showToast("⚠️ 修改失敗", "登入密碼長度建議介於 3 到 12 字元！", "error");
+        return;
+      }
+
+      const student = state.students.find(s => s.id === state.selectedStudentId);
+      if (student) {
+        student.password = newPass;
+        save();
+        newPassInput.value = '';
+        showToast("🔐 密碼更新成功", "您的個人艙房密碼修改成功！下次請使用新密碼登入。", "success");
+        playBeep(true);
+        renderTeacherTable();
+      }
+    }
+
+    function setTheme(theme) {
+      const student = state.students.find(s => s.id === state.selectedStudentId);
+      if(student) {
+        student.theme = theme;
+        loadStudentDashboard();
+        save();
+        showToast("🎨 艙外觀更新", `宇宙護照外貌已成功更換！`, "success");
+      }
+    }
+
+    function loadStudentDashboard() {
+      const student = state.students.find(s => s.id === state.selectedStudentId);
+      if(!student) return;
+
+      if(!student.holdings) student.holdings = {};
+
+      // 1. 渲染大卡片
+      document.getElementById('personal-card-container').innerHTML = generateCardHTML(student, false);
+      
+      // 2. 渲染資產比例圓餅圖
+      renderAssetDonut(student);
+      
+      // 3. 渲染導航 Tab
+      renderStudentTabBar();
+
+      // 4. 渲染子分頁內容
+      renderStudentContent();
+    }
+
+    // --- 繪製宇航員 Tab 導航欄 ---
+    function renderStudentTabBar() {
+      const container = document.getElementById('student-tab-bar');
+      container.innerHTML = '';
+
+      const tabConfigs = {
+        store: { id: 'store', label: '🛒 星際商店' },
+        bank: { id: 'bank', label: '🏦 定存合約' },
+        invest: { id: 'invest', label: '📈 證券交易所' },
+        history: { id: 'history', label: '📊 帳戶 & 轉帳' }
+      };
+
+      let visibleCount = 0;
+      Object.keys(tabConfigs).forEach(key => {
+        if (state.visibleTabs[key]) {
+          visibleCount++;
+          const isActive = state.studentTab === key;
+          container.innerHTML += `
+            <button onclick="setStTab('${key}')" id="tab-btn-${key}" 
+              class="st-tab-btn flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+                isActive ? 'nav-btn-active text-white' : 'text-slate-400 hover:text-white'
+              }">
+              ${tabConfigs[key].label}
+            </button>
+          `;
+        }
+      });
+
+      if (visibleCount === 0) {
+        container.innerHTML = `<div class="w-full text-center py-2 text-rose-400 font-bold text-xs animate-pulse">🛸 艙防作業管制：艦長目前暫停開放所有宇航員艙操作功能</div>`;
+        state.studentTab = 'none';
+      } else {
+        if (state.studentTab === 'none' || !state.visibleTabs[state.studentTab]) {
+          state.studentTab = getFirstAvailableStudentTab();
+          renderStudentTabBar();
+        }
+      }
+    }
+
+    // --- 計算並繪製圓餅圖 ---
+    function renderAssetDonut(student) {
+      const liquid = student.balance;
+      
+      // 定存總計
+      const activeDeps = state.deposits.filter(d => d.studentId === student.id && d.active);
+      const fdTotal = activeDeps.reduce((sum, d) => sum + d.amount, 0);
+      
+      // 證券總計
+      let investTotal = 0;
+      Object.keys(student.holdings).forEach(prodId => {
+        const shares = student.holdings[prodId] || 0;
+        const prod = state.marketProducts.find(p => p.id === prodId);
+        if (prod && shares > 0) {
+          investTotal += shares * prod.price;
+        }
+      });
+
+      const grandTotal = liquid + fdTotal + investTotal;
+      document.getElementById('total-asset-label').innerText = `資產總估值: ${grandTotal} 🪙`;
+
+      const ctx = document.getElementById('assetDonutChart').getContext('2d');
+      if (assetChartInstance) {
+        assetChartInstance.destroy();
+      }
+
+      assetChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['活期餘額', '定期存款', '證券持倉'],
+          datasets: [{
+            data: [liquid, fdTotal, investTotal],
+            backgroundColor: ['#6366f1', '#10b981', '#f59e0b'],
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#e0e7ff', font: { size: 10 } },
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+
+    function setStTab(tab) {
+      if (tab !== 'none' && !state.visibleTabs[tab]) {
+        showToast("⚠️ 無法載入", "艦長目前關閉了該分頁功能！", "error");
+        return;
+      }
+      state.studentTab = tab;
+      
+      document.querySelectorAll('.st-tab-btn').forEach(btn => {
+        btn.classList.remove('nav-btn-active', 'text-white');
+        btn.classList.add('text-slate-400');
+      });
+
+      const activeBtn = document.getElementById(`tab-btn-${tab}`);
+      if(activeBtn) {
+        activeBtn.classList.add('nav-btn-active', 'text-white');
+        activeBtn.classList.remove('text-slate-400');
+      }
+
+      renderStudentContent();
+    }
+
+    // --- 渲染智慧宇航員個人艙子頁面 (商店將過濾隱藏庫存降為 0 的下架商品) ---
+    function renderStudentContent() {
+      const container = document.getElementById('st-content');
+      const student = state.students.find(s => s.id === state.selectedStudentId);
+      if(!student) return;
+
+      if (state.studentTab === 'none') {
+        container.innerHTML = `
+          <div class="glass p-8 rounded-3xl flex flex-col items-center justify-center text-center space-y-4">
+            <span class="text-6xl animate-bounce">🛸</span>
+            <h4 class="text-xl font-bold text-rose-400">目前處於管制靜止狀態</h4>
+            <p class="text-xs text-slate-300 max-w-sm">
+              艦長目前關閉了所有智慧個人艙的延伸功能（商店、定存、交易所、轉帳）。請專心聽取艦長指令與機會教育宣導！
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      if (state.studentTab === 'store') {
+        // 過濾出目前仍有庫存的未下架商品
+        const activeStoreItems = state.items.filter(i => i.stock === undefined || i.stock > 0);
+        
+        if (activeStoreItems.length === 0) {
+          container.innerHTML = `
+            <div class="glass p-8 rounded-3xl flex flex-col items-center justify-center text-center space-y-4">
+              <span class="text-6xl animate-bounce">🎁</span>
+              <h4 class="text-lg font-bold text-amber-400">🪐 星河福利商店已售罄</h4>
+              <p class="text-xs text-slate-300 max-w-sm">目前全艦所有福利物資已售完下架，請靜待艦長補貨並上架新物資！</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = `
+          <div class="space-y-4">
+            <h4 class="text-lg font-bold text-indigo-300">🪐 星河福利商店 (僅供瀏覽)</h4>
+            <p class="text-xs text-slate-400">個人艙目前為唯讀目錄。欲兌換商品，請攜帶您的太空卡至「嗶卡機終端」，由艦長操作扣款！</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${activeStoreItems.map(i => `
+                <div class="glass p-5 rounded-2xl flex justify-between items-center hover:border-indigo-500/50 transition-all">
+                  <div class="flex items-center gap-4">
+                    <span class="text-4xl bg-black/30 p-3 rounded-xl">${i.icon}</span>
+                    <div>
+                      <p class="font-bold text-white text-base">${i.name}</p>
+                      <p class="text-xs text-amber-400 font-mono">售價: ${i.price} 🪙 | 庫存剩餘: ${i.stock !== undefined ? i.stock : '無限制'}</p>
+                    </div>
+                  </div>
+                  <span class="text-[11px] font-bold text-indigo-300 bg-indigo-950/40 border-indigo-500/20 border px-3 py-2 rounded-xl flex items-center gap-1">
+                    🔒 請至終端嗶卡
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } 
+      else if (state.studentTab === 'bank') {
+        const myDeposits = state.deposits.filter(d => d.studentId === student.id);
+        container.innerHTML = `
+          <div class="space-y-6">
+            <div class="glass p-6 rounded-3xl space-y-4">
+              <h4 class="text-lg font-bold text-amber-300">🏦 星際定存合約中心</h4>
+              <p class="text-xs text-slate-300">簽署定存協議能鎖定您的金幣，在合約存續期間無法動用。但可以獲取高額星際聯邦補貼的利息收益！</p>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button onclick="applyDeposit(100, 7, 5)" class="p-4 bg-slate-800/50 hover:bg-emerald-950/30 border border-white/10 rounded-2xl text-left transition-all hover:scale-105">
+                  <p class="font-bold text-emerald-400">7天短航定存</p>
+                  <p class="text-xs text-slate-300 mt-1">存 100 獲得 105</p>
+                  <p class="text-[10px] text-amber-400 mt-2 font-mono">利息報酬率: +5%</p>
+                </button>
+                <button onclick="applyDeposit(300, 14, 36)" class="p-4 bg-slate-800/50 hover:bg-emerald-950/30 border border-white/10 rounded-2xl text-left transition-all hover:scale-105">
+                  <p class="font-bold text-emerald-400">14天中軌定存</p>
+                  <p class="text-xs text-slate-300 mt-1">存 300 獲得 336</p>
+                  <p class="text-[10px] text-amber-400 mt-2 font-mono">利息報酬率: +12%</p>
+                </button>
+                <button onclick="applyDeposit(500, 30, 150)" class="p-4 bg-slate-800/50 hover:bg-emerald-950/30 border border-white/10 rounded-2xl text-left transition-all hover:scale-105">
+                  <p class="font-bold text-emerald-400">30天深空長定存</p>
+                  <p class="text-xs text-slate-300 mt-1">存 500 獲得 650</p>
+                  <p class="text-[10px] text-amber-400 mt-2 font-mono">利息報酬率: +30%</p>
+                </button>
+                <button onclick="applyDeposit(800, 45, 320)" class="p-4 bg-slate-800/50 hover:bg-emerald-950/30 border border-white/10 rounded-2xl text-left transition-all hover:scale-105">
+                  <p class="font-bold text-emerald-400">45天星雲中繼定存</p>
+                  <p class="text-xs text-slate-300 mt-1">存 800 獲得 1120</p>
+                  <p class="text-[10px] text-amber-400 mt-2 font-mono">利息報酬率: +40%</p>
+                </button>
+                <button onclick="applyDeposit(1500, 90, 900)" class="p-4 bg-slate-800/50 hover:bg-emerald-950/30 border border-white/10 rounded-2xl text-left transition-all hover:scale-105">
+                  <p class="font-bold text-emerald-400">90天跨星系開拓定存</p>
+                  <p class="text-xs text-slate-300 mt-1">存 1500 獲得 2400</p>
+                  <p class="text-[10px] text-amber-400 mt-2 font-mono">利息報酬率: +60%</p>
+                </button>
+                <button onclick="applyDeposit(3000, 180, 3000)" class="p-4 bg-slate-800/50 hover:bg-emerald-950/30 border border-white/10 rounded-2xl text-left transition-all hover:scale-105">
+                  <p class="font-bold text-emerald-400">180天黑洞觀測深空定存</p>
+                  <p class="text-xs text-slate-300 mt-1">存 3000 獲得 6000</p>
+                  <p class="text-[10px] text-amber-400 mt-2 font-mono">利息報酬率: +100%</p>
+                </button>
+              </div>
+            </div>
+
+            <!-- 定存單 -->
+            <div class="glass p-6 rounded-3xl">
+              <h5 class="font-bold mb-4 text-indigo-300 flex items-center gap-2">
+                <span>📑</span> 您的活躍定存單合約
+              </h5>
+              ${myDeposits.filter(d=>d.active).length === 0 ? `<p class="text-xs text-slate-400 py-4 text-center">目前尚無活躍的定存合約，快去簽署一筆合約吧！</p>` : `
+                <div class="space-y-3">
+                  ${myDeposits.filter(d=>d.active).map(d => `
+                    <div class="p-4 bg-emerald-950/20 border border-emerald-500/20 rounded-2xl flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                      <div>
+                        <p class="font-bold text-emerald-400">星際儲備單 (${d.amount} 🪙)</p>
+                        <p class="text-[10px] text-slate-400">到期利息金: +${d.interest} 🪙 | 還剩餘 ${d.remainingDays} 天 (週期) 到期</p>
+                      </div>
+                      <div class="flex-1 max-w-xs bg-slate-800 rounded-full h-2 overflow-hidden mx-4">
+                        <div class="bg-emerald-500 h-2" style="width: ${((d.term - d.remainingDays)/d.term)*100}%"></div>
+                      </div>
+                      <span class="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-center">推進時間計息中</span>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      } 
+      else if (state.studentTab === 'invest') {
+        container.innerHTML = `
+          <div class="space-y-6">
+            <div class="glass p-6 rounded-3xl">
+              <div class="flex justify-between items-center mb-2">
+                <h4 class="text-lg font-bold text-amber-300">📈 星際證券與資產交易所</h4>
+                <p class="text-[10px] text-slate-400">推進時間會隨之改變資產價格</p>
+              </div>
+              <p class="text-xs text-slate-300 mb-6">宇航員可在此進行資本操作。包含高風險的「股票」、中等穩定的「基金」與極度穩健派息的「債券」。</p>
+
+              <div class="grid grid-cols-1 gap-4">
+                ${state.marketProducts.map(prod => {
+                  const shares = student.holdings[prod.id] || 0;
+                  const currentVal = shares * prod.price;
+                  
+                  const historyArr = prod.history || [prod.price];
+                  const prevPrice = historyArr.length > 1 ? historyArr[historyArr.length - 2] : prod.price;
+                  const rate = prevPrice !== 0 ? ((prod.price - prevPrice) / prevPrice * 100).toFixed(1) : '0.0';
+                  const isUp = prod.price >= prevPrice;
+
+                  return `
+                    <div class="p-5 bg-slate-900/40 border border-white/5 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-indigo-500/30 transition-all">
+                      <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs px-2 py-0.5 rounded ${
+                            prod.type === 'stock' ? 'bg-red-500/20 text-red-300' : prod.type === 'fund' ? 'bg-blue-500/20 text-blue-300' : 'bg-emerald-500/20 text-emerald-300'
+                          }">${prod.type === 'stock' ? '股票' : prod.type === 'fund' ? '基金' : '債券'}</span>
+                          <span class="font-bold text-white text-base">${prod.name}</span>
+                        </div>
+                        <p class="text-xs text-slate-400">目前市價：<span class="text-amber-400 font-mono font-bold">${prod.price} 🪙 / 股</span></p>
+                      </div>
+
+                      <div class="text-left md:text-center font-mono">
+                        <p class="text-[10px] text-slate-400">24H 漲跌幅</p>
+                        <p class="text-sm font-bold ${isUp ? 'text-rose-400' : 'text-emerald-400'}">
+                          ${isUp ? '▲' : '▼'} ${rate}%
+                        </p>
+                      </div>
+
+                      <div class="font-mono">
+                        <p class="text-[10px] text-slate-400">您的持倉狀況</p>
+                        <p class="text-sm font-bold text-indigo-300">${shares} 股 (市值 ${currentVal} 🪙)</p>
+                      </div>
+
+                      <div class="flex gap-2 w-full md:w-auto">
+                        <button onclick="tradeProduct('${prod.id}', 'buy')" class="flex-1 md:flex-initial bg-rose-600 hover:bg-rose-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-colors">買進</button>
+                        <button onclick="tradeProduct('${prod.id}', 'sell')" class="flex-1 md:flex-initial bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition-colors" ${shares <= 0 ? 'disabled opacity-50' : ''}>賣出</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      } 
+      else if (state.studentTab === 'history') {
+        const myLogs = state.logs.filter(l => l.studentId === student.id);
+        container.innerHTML = `
+          <div class="space-y-6">
+            <div class="glass p-6 rounded-3xl space-y-4">
+              <h4 class="text-lg font-bold text-indigo-300">👥 同儕跨星際轉帳 (P2P Transfer)</h4>
+              <p class="text-xs text-slate-300">你可以輸入其他資優宇航員的「登機編號」，進行零手續費轉帳。</p>
+              
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input type="text" id="transfer-target" placeholder="輸入接收方登機編號... (例如: G50122)" class="bg-black/50 border border-white/10 p-3 rounded-xl outline-none text-white text-xs">
+                <input type="number" id="transfer-amount" placeholder="轉帳數量... (🪙)" class="bg-black/50 border border-white/10 p-3 rounded-xl outline-none text-white text-xs">
+                <button onclick="handleTransfer()" class="bg-indigo-600 hover:bg-indigo-500 p-3 rounded-xl font-bold text-xs transition-colors">啟動轉帳推進</button>
+              </div>
+            </div>
+
+            <div class="glass p-6 rounded-3xl">
+              <h4 class="text-lg font-bold text-indigo-300 mb-4">📊 個人太空交易明細</h4>
+              <div class="rounded-3xl overflow-hidden max-h-[250px] overflow-y-auto">
+                ${myLogs.length === 0 ? `<p class="text-sm text-slate-400 text-center py-8">尚無任何交易明細記錄。</p>` : `
+                  <div class="divide-y divide-white/5">
+                    ${myLogs.map(l => `
+                      <div class="p-4 flex justify-between items-center">
+                        <div>
+                          <p class="text-sm font-bold text-white">${l.desc}</p>
+                          <p class="text-[10px] text-slate-400">${l.time}</p>
+                        </div>
+                        <span class="font-mono font-bold ${l.type === 'earn' ? 'text-emerald-400' : 'text-rose-400'}">
+                          ${l.type === 'earn' ? '+' : '-'}${l.amount} 🪙
+                        </span>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    // --- 宇航員自主操作邏輯 ---
+    function studentPurchase(itemId) {
+      showToast("🔒 無法自購", "福利商品不能自行兌換！請在課堂請艦長使用「嗶卡感應機」扣款購買。", "error");
+    }
+
+    function applyDeposit(amount, term, interest) {
+      const student = state.students.find(s => s.id === state.selectedStudentId);
+      if(!student) return;
+
+      if(student.balance < amount) {
+        showToast("❌ 星幣餘額不足", `本定存方案需要起存金額 ${amount} 🪙。`, "error");
+        return;
+      }
+
+      triggerCosmicDialog({
+        title: "🏦 簽署定存合約",
+        message: `您確定要將 ${amount} 🪙 鎖定在定存合約 ${term} 天期嗎？到期利息預計為 +${interest} 🪙。`,
+        icon: "📜",
+        showCancel: true,
+        onOk: () => {
+          student.balance -= amount;
+          state.deposits.push({
+            studentId: student.id,
+            amount,
+            term,
+            interest,
+            remainingDays: term,
+            active: true
+          });
+          logTransaction(student.id, "spend", amount, `簽署 ${term} 天定存合約（扣除本金）`);
+          showToast("🔒 合約簽署成功", `成功在定存中鎖入 ${amount} 🪙 金幣！`, "success");
+          save();
+          loadStudentDashboard();
+        }
+      });
+    }
+
+    // --- 證券買賣交易功能 ---
+    function tradeProduct(prodId, tradeType) {
+      const student = state.students.find(s => s.id === state.selectedStudentId);
+      const prod = state.marketProducts.find(p => p.id === prodId);
+      if (!student || !prod) return;
+
+      if (!student.holdings) student.holdings = {};
+      const currentShares = student.holdings[prodId] || 0;
+
+      if (tradeType === 'buy') {
+        triggerCosmicDialog({
+          title: "📈 委託買進證券",
+          message: `【${prod.name}】當前每股單價為 ${prod.price} 🪙。請在下方輸入您想買入的股數：`,
+          icon: "🚀",
+          showCancel: true,
+          showInput: true,
+          inputPlaceholder: "請輸入買入股數 (例如: 5)",
+          onOk: (val) => {
+            const qty = parseInt(val);
+            if (isNaN(qty) || qty <= 0) {
+              showToast("❌ 交易失敗", "請輸入有效的交易股份數量！", "error");
+              return;
+            }
+            const totalCost = qty * prod.price;
+            if (student.balance < totalCost) {
+              showToast("❌ 星幣不足", "您的活期餘額不足以支付這筆交易費用！", "error");
+              return;
+            }
+            student.balance -= totalCost;
+            student.holdings[prodId] = currentShares + qty;
+            logTransaction(student.id, "spend", totalCost, `買入證券: ${prod.name} (${qty} 股)`);
+            showToast("📊 買入委託成功", `已買入 ${qty} 股 ${prod.name}！`, "success");
+            save();
+            loadStudentDashboard();
+          }
+        });
+      } else {
+        triggerCosmicDialog({
+          title: "💰 結算賣出證券",
+          message: `【${prod.name}】目前市價 ${prod.price} 🪙/股。您目前持有 ${currentShares} 股。`,
+          icon: "☄️",
+          showCancel: true,
+          showInput: true,
+          inputPlaceholder: `請輸入欲賣出的股數 (最多 ${currentShares})`,
+          onOk: (val) => {
+            const qty = parseInt(val);
+            if (isNaN(qty) || qty <= 0) {
+              showToast("❌ 交易失敗", "請輸入有效的股份數量！", "error");
+              return;
+            }
+            if (qty > currentShares) {
+              showToast("⚠️ 庫存餘額不足", "您未持有這麼多股份庫存！", "error");
+              return;
+            }
+            const totalEarn = qty * prod.price;
+            student.balance += totalEarn;
+            student.holdings[prodId] = currentShares - qty;
+            logTransaction(student.id, "earn", totalEarn, `賣出證券: ${prod.name} (${qty} 股)`);
+            showToast("💰 賣出結算成功", `已賣出 ${qty} 股 ${prod.name}，獲得 ${totalEarn} 🪙 資金！`, "success");
+            save();
+            loadStudentDashboard();
+          }
+        });
+      }
+    }
+
+    // --- 轉帳功能 ---
+    function handleTransfer() {
+      const fromStudent = state.students.find(s => s.id === state.selectedStudentId);
+      const targetId = document.getElementById('transfer-target').value.trim();
+      const amount = parseInt(document.getElementById('transfer-amount').value);
+
+      if(!fromStudent) return;
+      if(!targetId || isNaN(amount) || amount <= 0) {
+        showToast("⚠️ 欄位不合法", "請確認輸入的宇航員編號與星幣金額是否正確！", "error");
+        return;
+      }
+
+      if(fromStudent.id === targetId) {
+        showToast("⚠️ 自轉限制", "不允許向您自己的星系帳戶進行資金劃撥！", "error");
+        return;
+      }
+
+      const toStudent = state.students.find(s => s.id === targetId);
+      if(!toStudent) {
+        showToast("❌ 找不到該宇航員", "星河資料庫中找不到此編號，請重新核對！", "error");
+        return;
+      }
+
+      if(fromStudent.balance < amount) {
+        showToast("❌ 資金不足", "您的活期餘額不足以進行此項金額劃撥！", "error");
+        return;
+      }
+
+      triggerCosmicDialog({
+        title: "👥 跨星際同儕劃撥確認",
+        message: `您即將匯出 ${amount} 🪙 至宇航員「${toStudent.name}」的卡片。此操作立即執行且無法撤回！`,
+        icon: "🛸",
+        showCancel: true,
+        onOk: () => {
+          fromStudent.balance -= amount;
+          toStudent.balance += amount;
+
+          logTransaction(fromStudent.id, "spend", amount, `匯出款項至 [${toStudent.name}]`);
+          logTransaction(toStudent.id, "earn", amount, `收到自 [${fromStudent.name}] 的轉帳金`);
+
+          showToast("🌌 跨星系轉帳完成", `成功轉移 ${amount} 🪙 到 [${toStudent.name}] 的艙房！`, "success");
+          
+          document.getElementById('transfer-target').value = '';
+          document.getElementById('transfer-amount').value = '';
+
+          save();
+          loadStudentDashboard();
+        }
+      });
+    }
+
+    // --- 艦長後台功能 ---
+    function createNewAccount() {
+      const id = document.getElementById('new-id').value.trim();
+      const name = document.getElementById('new-name').value.trim();
+      const password = document.getElementById('new-password').value.trim();
+      const balance = parseInt(document.getElementById('new-balance').value) || 0;
+
+      if(!id || !name || !password) {
+        showToast("⚠️ 開戶失敗", "所有的資料欄位都必須填寫！", "error");
+        return;
+      }
+
+      if(state.students.some(s => s.id === id)) {
+        showToast("⚠️ 帳號已被佔用", "此登機編號在星際銀行中已開立過帳戶。", "error");
+        return;
+      }
+
+      const randomThemes = ["blue", "pink", "gold", "green", "dark"];
+      const theme = randomThemes[Math.floor(Math.random() * randomThemes.length)];
+
+      state.students.push({
+        id, name, password, balance, theme, holdings: {}
+      });
+
+      showToast("🌠 登錄成功", `歡迎新星際宇航員 ${name} 登機加入！`, "success");
+
+      document.getElementById('new-id').value = '';
+      document.getElementById('new-name').value = '';
+      document.getElementById('new-password').value = '';
+      
+      save();
+      renderTeacherTable();
+      populateStudentSwitcher();
+    }
+
+    function renderTeacherTable() {
+      const tbody = document.getElementById('teacher-table-body');
+      tbody.innerHTML = '';
+      
+      state.students.forEach(s => {
+        tbody.innerHTML += `
+          <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
+            <td class="py-4 font-bold text-white text-sm">${s.name}</td>
+            <td class="py-4 font-mono text-xs text-indigo-200">${s.id}</td>
+            <td class="py-4 font-mono text-xs text-indigo-300 font-bold">${s.password}</td>
+            <td class="py-4 text-right font-mono font-bold text-amber-300">${s.balance}</td>
+            <td class="py-4 text-center">
+              <div class="flex justify-center gap-2">
+                <button onclick="adjustBalanceViaTeacher('${s.id}', 100)" class="bg-emerald-600/30 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-600/50 px-2 py-1 rounded-lg text-xs font-bold">+100</button>
+                <button onclick="adjustBalanceViaTeacher('${s.id}', -100)" class="bg-rose-600/30 text-rose-400 border border-rose-500/20 hover:bg-rose-600/50 px-2 py-1 rounded-lg text-xs font-bold">-100</button>
+                <button onclick="deleteAccount('${s.id}')" class="bg-slate-700/50 text-slate-300 hover:bg-rose-900/50 px-2 py-1 rounded-lg text-xs">刪除</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      });
+    }
+
+    // 渲染全帳域所有宇航員交易歷史細目
+    function renderTeacherAllLogs() {
+      const container = document.getElementById('all-astronauts-logs');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (state.logs.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 py-8 text-center font-mono">NO TRANSACTION FLOW RECORDED · 目前無交易歷史明細</p>`;
+        return;
+      }
+
+      state.logs.forEach(l => {
+        const student = state.students.find(s => s.id === l.studentId);
+        const astronautName = student ? student.name : '未知宇航員';
+        const badgeClass = l.type === 'earn' ? 'text-emerald-400' : 'text-rose-400';
+        const sign = l.type === 'earn' ? '+' : '-';
+
+        container.innerHTML += `
+          <div class="py-3 flex justify-between items-center gap-4 text-xs">
+            <div>
+              <p class="font-bold text-white flex items-center gap-2 flex-wrap">
+                <span class="bg-indigo-950/80 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-lg text-[10px] font-mono">${astronautName} [${l.studentId}]</span>
+                <span>${l.desc}</span>
+              </p>
+              <p class="text-[10px] text-slate-400 mt-1 font-mono">${l.time}</p>
+            </div>
+            <span class="font-mono font-bold ${badgeClass}">
+              ${sign}${l.amount} 🪙
+            </span>
+          </div>
+        `;
+      });
+    }
+
+    // 艦長端清空全域歷史明細流水帳
+    function clearAllLogs() {
+      triggerCosmicDialog({
+        title: "🧹 確定清除全域歷史明細",
+        message: "此操作將會清空全艦所有的歷史交易明細，但不會變更、扣除任何宇航員目前的存款與餘額，確定要執行清除嗎？",
+        icon: "🚨",
+        showCancel: true,
+        onOk: () => {
+          state.logs = [];
+          save();
+          renderTeacherAllLogs();
+          showToast("🧹 細目清除成功", "全帳域交易歷史紀錄已清空完成。", "success");
+          playBeep(true);
+        }
+      });
+    }
+
+    // 艦長後台太空資產分布比例大盤數據圓餅圖
+    function renderTeacherClassAssetChart() {
+      const canvas = document.getElementById('teacherClassAssetDonutChart');
+      if (!canvas) return;
+
+      let classCash = 0;
+      let classDeposits = 0;
+      let classInvestments = 0;
+
+      // 1. 累加所有人活期存款餘額
+      state.students.forEach(s => {
+        classCash += s.balance;
+      });
+
+      // 2. 累加所有活躍定存合約
+      state.deposits.forEach(d => {
+        if (d.active) {
+          classDeposits += d.amount;
+        }
+      });
+
+      // 3. 累計所有人證券市場持倉市值
+      state.students.forEach(s => {
+        if (s.holdings) {
+          Object.keys(s.holdings).forEach(prodId => {
+            const qty = s.holdings[prodId] || 0;
+            const prod = state.marketProducts.find(p => p.id === prodId);
+            if (prod && qty > 0) {
+              classInvestments += qty * prod.price;
+            }
+          });
+        }
+      });
+
+      const classGrandTotal = classCash + classDeposits + classInvestments;
+      const totalLabel = document.getElementById('teacher-class-total-assets');
+      if (totalLabel) {
+        totalLabel.innerText = `全體總資產估值: ${classGrandTotal} 🪙`;
+      }
+
+      const ctx = canvas.getContext('2d');
+      if (teacherAssetChartInstance) {
+        teacherAssetChartInstance.destroy();
+      }
+
+      teacherAssetChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['全體活期餘額', '全體定期存款', '全體證券持倉'],
+          datasets: [{
+            data: [classCash, classDeposits, classInvestments],
+            backgroundColor: ['#6366f1', '#10b981', '#f59e0b'],
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#e0e7ff', font: { size: 10 } },
+              position: 'bottom'
+            }
+          }
+        }
+      });
+    }
+
+    function adjustBalanceViaTeacher(studentId, amount) {
+      const student = state.students.find(s => s.id === studentId);
+      if(!student) return;
+
+      if(amount < 0 && student.balance < Math.abs(amount)) {
+        showToast("⚠️ 調整失敗", "宇航員餘額不足以扣除此數值。", "error");
+        return;
+      }
+
+      student.balance += amount;
+      logTransaction(studentId, amount > 0 ? "earn" : "spend", Math.abs(amount), "艦長手動管理帳戶餘額");
+      showToast("⚙️ 手動調整成功", `已成功更改 ${student.name} 的餘額。`, "success");
+      
+      save();
+      renderTeacherTable();
+      renderTeacherAllLogs();
+      renderTeacherClassAssetChart();
+    }
+
+    function deleteAccount(id) {
+      triggerCosmicDialog({
+        title: "⚠️ 確定銷毀帳戶",
+        message: `確定要關閉登機編號為 [${id}] 的星際帳戶嗎？宇航員名冊中所有的數據都將不留痕跡地被抹除，此操作不可復原！`,
+        icon: "🚨",
+        showCancel: true,
+        onOk: () => {
+          state.students = state.students.filter(s => s.id !== id);
+          save();
+          renderTeacherTable();
+          populateStudentSwitcher();
+          renderTeacherClassAssetChart();
+          showToast("🧹 帳戶已註銷", "該宇航員資訊已自星際資料庫移除。", "success");
+        }
+      });
+    }
+
+    // --- 重置系統資料 ---
+    function resetSystemData() {
+      triggerCosmicDialog({
+        title: "🚨 確定重置全艦數據",
+        message: "這會清空所有的宇航員護照帳戶、定存單、交易所持有部位與歷史帳本明細，恢復出廠設定，請謹慎操作！",
+        icon: "🔥",
+        showCancel: true,
+        onOk: () => {
+          localStorage.clear();
+          location.reload();
+        }
+      });
+    }
+
+    // --- 安全導航機制：艦長特權認證閘門 ---
+    function showView(view) {
+      if (view === 'terminal' || view === 'teacher') {
+        if (!state.isCaptainVerified) {
+          triggerCosmicDialog({
+            title: "🔐 艦長特權驗證",
+            message: "您正在試圖進入艦長（教師）專用區域。請輸入安全認證碼以獲取操作權限：",
+            icon: "🔒",
+            showCancel: true,
+            showInput: true,
+            inputPlaceholder: "請輸入驗證密碼...",
+            onOk: (val) => {
+              if (val === state.captainPasscode) {
+                state.isCaptainVerified = true;
+                showToast("🔓 認證成功", "歡迎艦長登入控制端，已開放高級操作權限！", "success");
+                updateNavigationUI();
+                executeShowView(view);
+              } else {
+                showToast("❌ 驗證失敗", "認證密碼輸入錯誤，特權區存取遭拒！", "error");
+              }
+            }
+          });
+          return;
+        }
+      }
+      executeShowView(view);
+    }
+
+    // --- 實際執行頁面渲染切換 ---
+    function executeShowView(view) {
+      state.currentView = view;
+      document.querySelectorAll('.view-section').forEach(s => s.classList.add('hidden'));
+      
+      const targetSection = document.getElementById(`view-${view}`);
+      if (targetSection) targetSection.classList.remove('hidden');
+      
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('nav-btn-active', 'text-white'));
+      
+      const targetBtn = document.getElementById(`btn-${view}`);
+      if (targetBtn) targetBtn.classList.add('nav-btn-active', 'text-white');
+      
+      if(view === 'terminal') {
+        renderTerminalCards();
+      } else if(view === 'student') {
+        loadStudentDashboard();
+      } else if(view === 'teacher') {
+        renderTeacherTable();
+        syncPermissionCheckboxes();
+        renderPresetsManagement(); 
+        renderTeacherAllLogs();
+        renderTeacherClassAssetChart();
+      }
+      renderLeaderboard();
+    }
+
+    // --- 渲染與增刪預設事件/商店商品的 JS 核心邏輯 ---
+    function renderPresetsManagement() {
+      const tasksContainer = document.getElementById('manage-tasks-list');
+      const itemsContainer = document.getElementById('manage-items-list');
+
+      // 渲染課堂預設事件
+      if (tasksContainer) {
+        tasksContainer.innerHTML = state.tasks.map(t => `
+          <div class="flex justify-between items-center p-3 bg-black/30 rounded-xl border border-white/5">
+            <div>
+              <p class="font-bold text-xs text-white">${t.name}</p>
+              <p class="text-[10px] text-emerald-400 font-mono">+${t.amount} 🪙</p>
+            </div>
+            <button onclick="deletePresetTask('${t.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2.5 py-1 rounded-lg hover:bg-rose-500/10 transition-all">刪除</button>
+          </div>
+        `).join('');
+      }
+
+      // 渲染商店預設商品 (包含庫存與價格微調機制)
+      if (itemsContainer) {
+        itemsContainer.innerHTML = state.items.map(i => `
+          <div class="p-3 bg-black/30 rounded-xl border border-white/5 space-y-3">
+            <div class="flex justify-between items-center">
+              <div class="flex items-center gap-2.5">
+                <span class="text-xl bg-black/40 p-1.5 rounded-lg">${i.icon}</span>
+                <div>
+                  <p class="font-bold text-xs text-white">${i.name}</p>
+                  <p class="text-[10px] text-rose-400 font-mono">${i.price} 🪙</p>
+                </div>
+              </div>
+              <div class="flex gap-1.5">
+                <button onclick="editPresetItemPrompt('${i.id}')" class="text-indigo-400 hover:text-indigo-300 text-xs px-2 py-1 rounded bg-indigo-500/10 hover:bg-indigo-500/20 transition-all">編輯</button>
+                <button onclick="deletePresetItem('${i.id}')" class="text-rose-400 hover:text-rose-300 text-xs px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 transition-all">刪除</button>
+              </div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] bg-slate-900/60 p-2 rounded-lg">
+              <span class="text-slate-400 font-bold">數量/庫存調整:</span>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustItemStock('${i.id}', -1)" class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-lg hover:bg-slate-700 font-bold text-rose-400">-</button>
+                <span class="font-mono font-bold text-amber-300">${i.stock !== undefined ? i.stock : 0}</span>
+                <button onclick="adjustItemStock('${i.id}', 1)" class="w-6 h-6 flex items-center justify-center bg-slate-800 rounded-lg hover:bg-slate-700 font-bold text-emerald-400">+</button>
+              </div>
+            </div>
+            <div class="flex justify-between items-center text-[11px] bg-slate-900/60 p-2 rounded-lg">
+              <span class="text-slate-400 font-bold">金額/售價調整:</span>
+              <div class="flex items-center gap-2">
+                <button onclick="adjustItemPrice('${i.id}', -10)" class="px-2 py-0.5 bg-slate-800 rounded-lg hover:bg-slate-700 font-mono text-rose-400">-10</button>
+                <span class="font-mono font-bold text-amber-300">${i.price} 🪙</span>
+                <button onclick="adjustItemPrice('${i.id}', 10)" class="px-2 py-0.5 bg-slate-800 rounded-lg hover:bg-slate-700 font-mono text-emerald-400">+10</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // 快速增減庫存量 (此處在後台增減商品庫存，亦會自動調用 renderTerminalActions 同步嗶卡機)
+    function adjustItemStock(id, delta) {
+      const item = state.items.find(i => i.id === id);
+      if (item) {
+        item.stock = Math.max(0, (item.stock || 0) + delta);
+        save();
+        renderPresetsManagement();
+        renderTerminalActions();
+        if (state.currentView === 'student') loadStudentDashboard();
+        showToast("📦 庫存調整成功", `商品 [${item.name}] 庫存變更為 ${item.stock}！`, "success");
+      }
+    }
+
+    // 快速增減售價
+    function adjustItemPrice(id, delta) {
+      const item = state.items.find(i => i.id === id);
+      if (item) {
+        item.price = Math.max(0, (item.price || 0) + delta);
+        save();
+        renderPresetsManagement();
+        renderTerminalActions();
+        if (state.currentView === 'student') loadStudentDashboard();
+        showToast("🪙 價格調整成功", `商品 [${item.name}] 價格變更為 ${item.price} 🪙！`, "success");
+      }
+    }
+
+    // 連連續對話編輯商品名稱、售價與庫存
+    function editPresetItemPrompt(id) {
+      const item = state.items.find(i => i.id === id);
+      if (!item) return;
+
+      triggerCosmicDialog({
+        title: "🛍️ 編輯商品名稱與圖標",
+        message: `目前商品名稱為：${item.icon} ${item.name}。請輸入新商品名稱 (建議附帶 Emoji，如：✏️ 炫彩自動筆)：`,
+        icon: "✍️",
+        showCancel: true,
+        showInput: true,
+        inputPlaceholder: `${item.icon} ${item.name}`,
+        onOk: (val) => {
+          if (val && val.trim()) {
+            const trimmed = val.trim();
+            const emojiRegex = /(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])/g;
+            const match = trimmed.match(emojiRegex);
+            if (match) {
+              item.icon = match[0];
+              item.name = trimmed.replace(emojiRegex, '').trim();
+            } else {
+              item.name = trimmed;
+            }
+          }
+          
+          // 下一步：編輯售價
+          triggerCosmicDialog({
+            title: "🪙 編輯商品售價",
+            message: `請輸入 [${item.icon} ${item.name}] 的新售價金幣數量 (目前: ${item.price} 🪙)：`,
+            icon: "💰",
+            showCancel: true,
+            showInput: true,
+            inputPlaceholder: `${item.price}`,
+            onOk: (priceVal) => {
+              const newPrice = parseInt(priceVal);
+              if (!isNaN(newPrice) && newPrice >= 0) {
+                item.price = newPrice;
+              }
+              
+              // 下一步：編輯庫存
+              triggerCosmicDialog({
+                title: "📦 編輯商品庫存量",
+                message: `請輸入 [${item.icon} ${item.name}] 的新上架庫存數量 (目前: ${item.stock} 個)：`,
+                icon: "🎒",
+                showCancel: true,
+                showInput: true,
+                inputPlaceholder: `${item.stock}`,
+                onOk: (stockVal) => {
+                  const newStock = parseInt(stockVal);
+                  if (!isNaN(newStock) && newStock >= 0) {
+                    item.stock = newStock;
+                  }
+                  save();
+                  renderPresetsManagement();
+                  renderTerminalActions();
+                  if (state.currentView === 'student') loadStudentDashboard();
+                  showToast("✅ 變更成功", `商品 [${item.name}] 已成功重新自訂設定！`, "success");
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    function addPresetTask() {
+      const name = document.getElementById('new-task-name').value.trim();
+      const amount = parseInt(document.getElementById('new-task-amount').value);
+
+      if (!name || isNaN(amount) || amount <= 0) {
+        showToast("⚠️ 輸入錯誤", "請提供完整的預設事件名稱與金幣值！", "error");
+        return;
+      }
+
+      state.tasks.push({
+        id: 't_' + Date.now(),
+        name,
+        amount
+      });
+
+      document.getElementById('new-task-name').value = '';
+      document.getElementById('new-task-amount').value = '';
+      save();
+      renderPresetsManagement();
+      renderTerminalActions();
+      showToast("✨ 新增預設成功", `已將獎勵事件 [${name}] 加至快捷目錄中。`, "success");
+    }
+
+    // 刪除課堂獎勵預設事件
+    function deletePresetTask(id) {
+      state.tasks = state.tasks.filter(t => t.id !== id);
+      save();
+      renderPresetsManagement();
+      renderTerminalActions();
+      showToast("🧹 事件已移除", "預設獎勵事件已成功自清冊刪除。", "success");
+    }
+
+    function addPresetItem() {
+      const name = document.getElementById('new-item-name').value.trim();
+      const icon = document.getElementById('new-item-icon').value.trim() || '🎁';
+      const price = parseInt(document.getElementById('new-item-price').value);
+      const stock = parseInt(document.getElementById('new-item-stock').value);
+
+      if (!name || isNaN(price) || price <= 0 || isNaN(stock) || stock < 0) {
+        showToast("⚠️ 輸入錯誤", "請提供完整的商品名稱、兌換售價與上架庫存量！", "error");
+        return;
+      }
+
+      state.items.push({
+        id: 'i_' + Date.now(),
+        name,
+        icon,
+        price,
+        stock
+      });
+
+      document.getElementById('new-item-name').value = '';
+      document.getElementById('new-item-icon').value = '';
+      document.getElementById('new-item-price').value = '';
+      document.getElementById('new-item-stock').value = '';
+      save();
+      renderPresetsManagement();
+      renderTerminalActions();
+      showToast("✨ 新增商品成功", `已將新商品 [${name}] 上架，初始庫存為 ${stock} 個！`, "success");
+    }
+
+    function deletePresetItem(id) {
+      state.items = state.items.filter(i => i.id !== id);
+      save();
+      renderPresetsManagement();
+      renderTerminalActions();
+      showToast("🧹 商品已移除", "預設商品已自福利商店與嗶卡選項中撤除。", "success");
+    }
+
+    // --- 鎖定/登出艦長特權模式 ---
+    function lockCaptainMode() {
+      state.isCaptainVerified = false;
+      showToast("🔒 艦長端已安全鎖定", "特權控制通道已順利關閉，並自動返回宇航員個人艙視圖！", "success");
+      updateNavigationUI();
+      executeShowView('student');
+    }
+
+    // --- 導航欄鎖定與後台特權按鈕 UI 刷新 (動態隱藏/顯現宇航員艙) ---
+    function updateNavigationUI() {
+      const lockBtn = document.getElementById('btn-lock-captain');
+      const terminalBtn = document.getElementById('btn-terminal');
+      const teacherBtn = document.getElementById('btn-teacher');
+      const studentBtn = document.getElementById('btn-student');
+      
+      if (state.isCaptainVerified) {
+        if (lockBtn) lockBtn.classList.remove('hidden');
+        if (terminalBtn) terminalBtn.classList.remove('hidden');
+        if (teacherBtn) teacherBtn.classList.remove('hidden');
+        if (studentBtn) studentBtn.classList.add('hidden'); // 艦長驗證通過後，上方導航欄完全隱藏「宇航員艙」
+      } else {
+        if (lockBtn) lockBtn.classList.add('hidden');
+        if (terminalBtn) terminalBtn.classList.add('hidden');
+        if (teacherBtn) teacherBtn.classList.add('hidden');
+        if (studentBtn) studentBtn.classList.remove('hidden'); // 普通狀態/登出後，復原顯示「宇航員艙」
+      }
+    }
+
+    function populateStudentSwitcher() {
+      const switcher = document.getElementById('student-switcher');
+      if (!switcher) return;
+      switcher.innerHTML = state.students.map(s => `
+        <option value="${s.id}">${s.name}</option>
+      `).join('');
+      if(state.students.length > 0) {
+        state.selectedStudentId = state.students[0].id;
+      }
+    }
+
+    function renderLeaderboard() {
+      const sorted = [...state.students].sort((a, b) => b.balance - a.balance);
+      const container = document.getElementById('leaderboard');
+      container.innerHTML = '';
+      
+      sorted.slice(0, 3).forEach((s, idx) => {
+        const medals = ["🥇 第一星軌", "🥈 第二星軌", "🥉 第三星軌"];
+        container.innerHTML += `
+          <div class="glass p-6 rounded-3xl text-center relative border border-white/10 hover:border-amber-500/30 transition-all">
+            <div class="text-3xl mb-2">${idx === 0 ? '👑' : idx === 1 ? '🥈' : '🥉'}</div>
+            <p class="font-bold text-amber-300 text-lg">${medals[idx]}</p>
+            <p class="font-extrabold text-white text-xl my-2">${s.name}</p>
+            <p class="text-xs text-indigo-300 font-mono">編號: ${s.id} | 餘額: ${s.balance} 🪙</p>
+          </div>
+        `;
+      });
+    }
+
+    function save() {
+      localStorage.setItem('cosmic_students', JSON.stringify(state.students));
+      localStorage.setItem('cosmic_deposits', JSON.stringify(state.deposits));
+      localStorage.setItem('cosmic_logs', JSON.stringify(state.logs));
+      localStorage.setItem('cosmic_market', JSON.stringify(state.marketProducts));
+      localStorage.setItem('cosmic_visible_tabs', JSON.stringify(state.visibleTabs));
+      localStorage.setItem('cosmic_captain_passcode', state.captainPasscode);
+      localStorage.setItem('cosmic_tasks', JSON.stringify(state.tasks)); // 儲存預設事件
+      localStorage.setItem('cosmic_items', JSON.stringify(state.items));   // 儲存預設商品
+      renderLeaderboard();
+      renderStats();
+    }
+
+    function renderStats() {
+      const total = state.students.reduce((a, b) => a + b.balance, 0);
+      const avg = state.students.length > 0 ? Math.round(total / state.students.length) : 0;
+      
+      document.getElementById('stat-total').innerText = total + " 🪙";
+      document.getElementById('stat-avg').innerText = avg + " 🪙";
+      document.getElementById('stat-count').innerText = state.students.length + " 人";
+      document.getElementById('stat-deposits').innerText = state.deposits.filter(d => d.active).length + " 筆";
+    }
+
+    // 初始化啟動
+    window.onload = () => {
+      initStars();
+      setMode('earn');
+      updateCosmicClock();
+      populateStudentSwitcher();
+      
+      // 預設回到登入首頁以提供完整的宇航防護安全感與後台控制權
+      executeShowView('student'); 
+      
+      renderLeaderboard();
+      renderStats();
+      updateNavigationUI();
+    };
+
+  </script>
+</body>
+</html>
